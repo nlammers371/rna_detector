@@ -246,14 +246,14 @@ saveas(cat_cap_fig,[FigPath 'catalytic_capacities_log.png'])
 % R: RNA concentration
 
 % set basic param values
-n_iter = 1e3;
+n_iter = 1e2;
 t_max = 1e20;
 atom_cell = {'C13' 'A13' 'A13I' 'S' 'F'};
 f_ind = find(strcmp(atom_cell,'F'));
 S0 = 200;
-AI0 = 5e2;
+AI0 = 200;
 R0_bounds = [-8,0];
-C0_bounds = [-7,2];
+alpha_bounds = [1,10];
 rate_vec_sim = [1 1 1 0.1 0.1*2e-4];
 y0_base = zeros(1,size(Q_mat,1));
 y0_base(1:4) = [0 0 AI0 S0];
@@ -277,9 +277,10 @@ for iter = 1:n_iter
     y0_neg_iter = y0_base;        
     % randomly draw R0 and C0 
     R0_iter = 10^(rand()*(R0_bounds(2) - R0_bounds(1)) + R0_bounds(1));
-    C0_iter = 10^(rand()*(C0_bounds(2) - C0_bounds(1)) + C0_bounds(1));
-    y0_pos_iter(1:2) = [R0_vec(r)];     
-    y0_neg_iter(1:2) = [alpha_vec(a)*R0_vec(r) 0];
+    alpha_iter = 10^(rand()*(alpha_bounds(2) - alpha_bounds(1)) + alpha_bounds(1));
+    C0_iter = alpha_iter*R0_iter;
+    y0_pos_iter(1:2) = [C0_iter R0_iter];     
+    y0_neg_iter(1:2) = [C0_iter 0];
     % solve ODEs
     Opt = odeset('Events', @myEvent);
     [t_pos,y_pos] = ode15s(@(t,y) ncr_solver(t,y,p_vec_sim,Q_mat),[0 t_max],y0_pos_iter,Opt);
@@ -296,4 +297,4 @@ for iter = 1:n_iter
     sim_struct(iter).t2_neg = max(t_neg);        
 end
 
-
+%%
