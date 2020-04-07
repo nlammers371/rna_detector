@@ -13,32 +13,34 @@ mkdir(DataPath)
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % reactant key (first order)
-%   species 1: A13I (caged activator)
-%   species 2: A13 (free activator and/or virus)
-%   species 3: C13 (free Cas13)
-%   species 4: S (dark reporter)
-%   species 5: F (Cleaved (fluorescent) reporter)
+%   species 1: A1 (activator 1)
+%   species 2: A2I (caged activator)
+%   species 3: A2 (free activator 2)
+%   species 4: C1 (Cas13 targeted to activator 1)
+%   species 5: C2 (Cas13 targeted to activator 2)
+%   species 6: S (dark reporter)
+%   species 7: F (Cleaved (fluorescent) reporter)
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 % initialize rates
-rate_vec = sym({'kon', 'koff_ns', 'koff_s', 'kcat_high', 'kcat_low'});
-syms kon koff_ns koff_s kcat_high kcat_low
+rate_vec_sym = sym({'kon', 'koff_ns', 'koff_s', 'kcat_high', 'kcat_low'});
+syms kon koff_ns koff_s kcat_high kcat_low SI_ratio
 
 % generate list of raction atoms 
-atom_string_cell = {'C13' 'A13' 'A13I' 'S' 'F'};
+atom_string_cell = {'C1' 'C2' 'A1' 'A2' 'A2I' 'S' 'F'};
 atom_sym_list = sym(atom_string_cell);
 n_atoms = numel(atom_sym_list);
 
 % compound reaction components
-compound_string_cell = {'C13_A13','C13_A13I','C13_S','C13_A13__A13I','C13_A13__S'};
-off_rate_vec = [koff_s koff_ns koff_ns koff_ns koff_ns];
+compound_string_cell = {'C1_A1','C2_A2','C1_A2I','C2_A2I','C1_S','C2_S','C1_A1__A2I','C2_A2__A2I','C1_A1__S','C2_A2__S'};
+off_rate_vec = [koff_s koff_s koff_ns koff_ns  koff_ns  koff_ns  koff_ns  koff_ns koff_ns koff_ns];
 compound_sym_list = sym(compound_string_cell);
 n_compounds = numel(compound_string_cell); 
 
 % define compounds with catalytic activity
-cat_compounds =  {'C13_A13I','C13_S','C13_A13__A13I','C13_A13__S'};
-cat_rates = [kcat_low kcat_low kcat_high kcat_high];
-cat_products = {'A13','F','A13','F'};
+cat_compounds =  {'C1_A2I','C2_A2I','C1_S','C2_S','C1_A1__A2I','C2_A2__A2I','C1_A1__S','C2_A2__S'};
+cat_rates = [kcat_low*SI_ratio kcat_low*SI_ratio kcat_low kcat_low kcat_high*SI_ratio kcat_high*SI_ratio kcat_high kcat_high];
+cat_products = {'A2','A2','F','F','A2','A2','F','F'};
 
 % initialize stoichiometry matrix 
 full_reactant_string_cell = [atom_string_cell compound_string_cell];
@@ -114,4 +116,4 @@ for i = 1:numel(compound_string_cell)
     end   
 end
 
-save([DataPath 'naive_ncr_setup.mat'])
+save([DataPath 'ncr_2activator_setup.mat'])
