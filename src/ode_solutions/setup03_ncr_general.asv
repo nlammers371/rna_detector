@@ -30,18 +30,18 @@ mkdir(DataPath)
     
 
 % initialize basic rate symbols
-syms kon koff_ns koff_s kcat_ratio kcat_cas sG1 sG2 sT1 sT2 sT2I sSs
+syms kon koff_ns koff_s kcat_ratio kcat_cas sG1 sG2 sT1 sT2 sT2I sS
 
 % generate list of raction atoms 
 atom_string_cell = {'C1' 'C2' 'G1' 'G2' 'T1' 'T2' 'T2I' 'S' };
 n_atoms = numel(atom_string_cell);
 atom_catalyst_vec = [1 1 0 0 0 0 0 0];
 atom_cat_rate_vec = [kcat_cas kcat_cas 0 0 0 0 0 0];
-atom_sub_rate_vec = [0 0 sG1 sG2 sT1 sT2 sT2I sSs];
+atom_sub_rate_vec = [0 0 sG1 sG2 sT1 sT2 sT2I sS];
 
 % stable compound reaction components (assuming all non-specific compound
 % abundances are negligible)
-cas_cat_cmp_string_cell = {'G1:C1','T1:G1:C1','G2:C2','T2:G2:C2'}; % reverse sense from equivalent ns compounds
+cas_cat_cmp_string_cell = {'G1:C1','[T1::G1:C1]','G2:C2','[T2::G2:C2]'}; % reverse sense from equivalent ns compounds
 n_cas_compounds = numel(cas_cat_cmp_string_cell); 
 compound_cat_rate_vec = [kcat_cas  kcat_cas*kcat_ratio kcat_cas kcat_cas*kcat_ratio];
 
@@ -54,7 +54,10 @@ sub_indices = find(atom_sub_rate_vec~=0);
 cat_product_string_cell = {};
 n_products = numel(sub_indices);
 for i = sub_indices
-    cat_product_string_cell = [cat_product_string_cell {[atom_string_cell{i} 'Z']}];
+    atom_str = atom_string_cell{i};
+    if ~strcmp(atom_str,'T2I') % exclude cafed activator
+        cat_product_string_cell = [cat_product_string_cell {[atom_str 'Z']}];
+    end
 end
 
 % construct full list of possible compound products
@@ -63,7 +66,9 @@ end
 n_atoms_total = n_atoms + n_cas_compounds + n_stable_compounds + n_products;
 full_atom_cell = [atom_string_cell cas_cat_cmp_string_cell stable_cmp_string_cell cat_product_string_cell];
 full_cat_rate_vec = [atom_cat_rate_vec compound_cat_rate_vec zeros(1,n_stable_compounds) zeros(1,n_products)];
+full_cat_bin_vec = logical(full_cat_rate_vec~=0);
 full_sub_rate_vec = [atom_sub_rate_vec zeros(1,n_cas_compounds) zeros(1,n_stable_compounds) zeros(1,n_products)];
+full_sub_bin_vec = logical(full_sub_rate_vec~=0);
 full_compound_string_cell = cell(1,n_atoms_total);
 cat_rate_vec_sym = [];
 cat_product_ind_vec = [];
@@ -71,48 +76,53 @@ cat_cat_ind_vec = [];
 component_array = NaN(n_atoms_total, 2);
 % iterate through all possible combinations
 % allow for unique catalytic rate for every catalyst-substrate combination
-
+colon_factors = [0 0 1 3 6];
 iter = 1;
 for a1 = 1:n_atoms_total
-    for a2 = a1:n_atoms_total % allow for self-interactions
-        component_array(iter,:) = [a1 a2];
-        
+    for a2 = a1:n_atoms_total % allow for self-interactions                
         % generate compound string
-        cp_string = [full_atom_cell{a1} ':' full_atom_cell{a2}];        
+        colon_count = max([count(full_atom_cell{a1},':') count(full_atom_cell{a2},':')]);
+        colon_ind = find(colon_factors==colon_count,1,'last');
+        cp_string = [full_atom_cell{a1} repelem(':', colon_factors(colon_ind) - colon_factors(colon_ind-1) + 1)...
+            full_atom_cell{a2}];        
         spec_flag = any(strcmp(cp_string,stable_cmp_string_cell));
-        if ~spec_flag
-            % increment
-            iter = iter + 1;
-            
+        if ~spec_flag            
+            component_array(iter,:) = [a1 a2];
             % add to list
             full_compound_string_cell{iter} = cp_string;
 
             % check for catalytic potential
-            cat_vec = [full_cat_rate_vec(a1) full_cat_rate_vec(a2)];
+            cat_vec = [full_cat_bin_vec(a1) full_cat_bin_vec(a2)];
             cat_indices = find(cat_vec);
-            sub_vec = [full_sub_rate_vec(a1) full_sub_rate_vec(a2)];
+            sub_vec = [full_sub_bin_vec(a1) full_sub_bin_vec(a2)];
             sub_indices = find(sub_vec);
-            if numel(cat_indices) == 1 && numel(sub_indices) == 1
-                cat_rate_vec_sym = [cat_rate_vec_sym cat_vec(cat_indices)*sub_vec(sub_indices)];
+            
+            % This is awful. I'm sorry
+            if numel(cat_indices) == 1 && numel(sub_indices) == 1                
                 if sub_indices == 1
-                    pd_ind = find(strcmp(full_atom_cell,[full_atom_cell{a1} 'Z']));
+                    cat_rate_vec_sym = [cat_rate_vec_sym full_cat_rate_vec(a2)*full_sub_rate_vec(a1)];
+                    sub_str = full_atom_cell{a1};
+                    if strcmp(sub_str,'T2I')
+                    pd_ind = find(strcmp(full_atom_cell,[ 'Z']));
                     cat_product_ind_vec = [cat_product_ind_vec pd_ind];
                     cat_cat_ind_vec = [cat_cat_ind_vec a2];
                 else
+                    cat_rate_vec_sym = [cat_rate_vec_sym full_cat_rate_vec(a1)*full_sub_rate_vec(a2)];
                     pd_ind = find(strcmp(full_atom_cell,[full_atom_cell{a2} 'Z']));
                     cat_product_ind_vec = [cat_product_ind_vec pd_ind];
                     cat_cat_ind_vec = [cat_cat_ind_vec a1];
-                end
+                end                
             else
                 cat_rate_vec_sym = [cat_rate_vec_sym 0];
                 cat_product_ind_vec = [cat_product_ind_vec NaN];
                 cat_cat_ind_vec = [cat_cat_ind_vec NaN];
             end
+            % increment
+            iter = iter + 1;
         end        
     end
 end
 
-%%
 on_rate_vec_sym = repelem(kon,numel(cat_rate_vec_sym));
 off_rate_vec_sym = repelem(koff_ns,numel(cat_rate_vec_sym));
 
@@ -136,7 +146,7 @@ cat_cat_ind_vec = [cat_cat_ind_vec NaN(1,n_stable_compounds)];
 
 component_array(iter+n_cas_compounds:iter+n_cas_compounds+n_stable_compounds-1,:) = [3 5 ; 4 6];
 
-%% Generate stoichiometry matrix and full-length first order rate vector
+% Generate stoichiometry matrix and full-length first order rate vector
 
 % calculate n reactants and n reactions 
 n_full_atoms = numel(full_atom_cell);
@@ -150,8 +160,11 @@ stoichiometry_matrix = zeros(n_reactants,n_reactions);
 % strings indicating raction scheme
 reaction_string_cell = cell(1,n_reactions);
 
+% array to track all reactants 
+full_reactant_cell = full_atom_cell;
+
 % initialize vector objects to store reaction rate info
-rate_vec_first_order_sym = sym('NA',[1,n_reactions]);
+rate_vec_zero_order_sym = sym('NA',[1,n_reactions]);
 rate_vec_full_sym = sym('NA',[1,n_reactions]);
 catalytic_activity_flag_vec = [];
 specific_activity_flag_vec = [];
@@ -159,18 +172,27 @@ specific_activity_flag_vec = [];
 rate_ind = 1;
 % iterate through all possible chemical interactions
 for i = 1:numel(full_compound_string_cell)
+    if i == 7
+        error('wtf')
+    end
     % check for special cases
     cat_rate = cat_rate_vec_sym(i);  
     off_rate = off_rate_vec_sym(i);
+    
     % extract compound
     cpnd_str = full_compound_string_cell{i};
-    cpnd_ind = n_full_atoms + i;
+    % check if compound already exists
+    cpnd_ind = find(strcmp(full_reactant_cell,cpnd_str));
+    if isempty(cpnd_ind)
+        full_reactant_cell = [full_reactant_cell {cpnd_str}];
+        cpnd_ind = length(full_reactant_cell);
+    end
     % get component indices
     component_indices = component_array(i,:);            
     cp1_str = full_atom_cell{component_indices(1)};
     cp2_str = full_atom_cell{component_indices(2)};
     % add association reaction and update Q
-    rate_vec_first_order_sym(rate_ind) = on_rate_vec_sym(i);
+    rate_vec_zero_order_sym(rate_ind) = on_rate_vec_sym(i);
         
     stoichiometry_matrix(component_indices, rate_ind) = -1;
     stoichiometry_matrix(cpnd_ind,rate_ind) = 1;
@@ -186,7 +208,7 @@ for i = 1:numel(full_compound_string_cell)
 
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     %%%%%%%%%%%% add disassociation reaction    
-    rate_vec_first_order_sym(rate_ind) = off_rate;
+    rate_vec_zero_order_sym(rate_ind) = off_rate;
 
     stoichiometry_matrix(component_indices, rate_ind) = 1;
     stoichiometry_matrix(cpnd_ind,rate_ind) = -1;
@@ -207,7 +229,7 @@ for i = 1:numel(full_compound_string_cell)
 
     if cat_rate~=0
         % update rate vec and stoichiometry matrix
-        rate_vec_first_order_sym(rate_ind) = cat_rate;
+        rate_vec_zero_order_sym(rate_ind) = cat_rate;
         
         % update stoich
         product_ind = cat_product_ind_vec(i);
