@@ -23,7 +23,7 @@ A2I0 = 20;
 C10 = 50;
 C20 = 0.8;
 A10_high = 1e-2;
-A10_low = 1e-3;
+A10_low = 10^-5.5;
 A20 = 0;
 
 
@@ -83,7 +83,7 @@ xlim([0 2000])
 
 xlabel('time (seconds)')
 ylabel('fluorescent signal (au)')
-legend([p1 p2],'0.01 nM activator (NCR)','0.001 nM activator (NCR)','Location','southeast')
+legend([p1 p2],'10 pM activator (NCR)','1 fM activator (NCR)','Location','southeast')
 
 set(gca,'FontSize',14)
 grid on
@@ -101,7 +101,7 @@ xlim([0 2000])
 
 xlabel('time (seconds)')
 ylabel('fluorescent signal (au)')
-legend([p1 p2 p3],'0.01 nM activator','0.001 nM activator','Cas/G only (5e6 SNR)','Location','southeast')
+legend([p1 p2 p3],'10 pM activator','1 fM activator','Cas/G only (5e6 SNR)','Location','southeast')
 
 set(gca,'FontSize',14)
 grid on
@@ -120,7 +120,7 @@ xlim([0 t_max])
 
 xlabel('time (seconds)')
 ylabel('fluorescent signal (au)')
-legend([p1 p2 p4],'0.01 nM activator','0.001 nM activator','Cas/G only (5e8 SNR)','Location','southeast')
+legend([p1 p2 p4],'10 pM activator','1 fM activator','Cas/G only (5e8 SNR)','Location','southeast')
 
 set(gca,'FontSize',14)
 grid on

@@ -36,7 +36,7 @@ NA_eff = NA + b_cat*NC; % render C0 in terms of effective numbers of activator
 t_sim = log(NC/NA/100)/k_cat_eff; % time to simulate
 dt =  1 / k_cat_eff / 1e3;
 % n_steps = t_sim / dt;
-n_sim = 100;
+n_sim = 500;
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % Integrate forward in time
@@ -65,7 +65,11 @@ a_array_nM = a_array / n_mol * 1e9 /reaction_vol;
 [P01, p1_ind] = max(a_array(sec_ind,:));
 [P02 ,p2_ind]= min(a_array(sec_ind,:));
 
-% make critical window figure
+
+
+
+
+%% make critical window figure
 c_window_fig = figure;
 cmap = brewermap(9,'Set2');
 colormap(cmap);
@@ -183,7 +187,7 @@ for t = 2:numel(t_vec)
 end
 toc
 
-%%
+%
 t_ref_2 = 10;
 [~, sec_ind] = min(abs(t_vec-t_ref_2));
 % render a_array in nM
@@ -213,7 +217,7 @@ legend([p1 p2],'replicates (positive sample)','replicates (negative sample)','Lo
 set(gca,'Fontsize',12)
 saveas(pos_vs_neg_fig,[FigPath 'pos_vs_neg_pt1.png'])
 
-%% plot distributions over time 
+% plot distributions over time 
 neg_vec = a_array_neg_nM(sec_ind,:);
 pos_vec = a_array_pos_nM(sec_ind,:);
 n_bins = 50;
