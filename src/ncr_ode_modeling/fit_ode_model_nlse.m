@@ -107,7 +107,7 @@ fluo_cell_raw = cell(1,length(y0_cell));
 time_cell_raw = cell(1,length(y0_cell));
 
 for f = 1:length(y0_cell)
-    [t_fit,y_fit] = ode15s(@(t,y) ncr_solver_v2(t,y,rate_vec_val,Q),[0 t_max],y0_vec_primary);
+    [t_fit,y_fit] = ode15s(@(t,y) ncr_solver_v2(t,y,rate_vec_val,Q),[0 t_max],y0_cell{f});
     fluo_cell_raw{f} = sum(y_fit(:,f_indices),2);
     time_cell_raw{f} = t_fit;
 end
@@ -187,3 +187,10 @@ parfor n = 1:n_inference_runs
     res_vec(n) = resnorm;
 end
 
+
+[~,best_fit_index] = min(res_vec);
+figure;
+hold on
+p = plot(time_exp,fluo_exp_array);
+q = plot(time_exp,fluo_fit_array(:,:,best_fit_index),'Color','black','LineWidth',1.5);
+legend([p(1) p(2) q(1)],'primary only','no activator', 'model fits','Location','northwest')
