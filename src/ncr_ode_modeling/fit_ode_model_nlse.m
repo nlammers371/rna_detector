@@ -9,7 +9,7 @@ DataPath = '../../out/ncr_ode_modeling/';
 mkdir(DataPath)
 
 % specify project to load
-project = 'primary_only_v1';
+project = 'primary_only_v2';
 
 % make figure path
 FigPath = ['../../fig/ode_studies_v2/' project '/' ];
@@ -28,11 +28,13 @@ for i = 1:numel(reaction_rate_index)
     t_char = char(r_sym);
     char_list = strsplit(t_char,'*');
     for c = 1:numel(char_list)
+%         char_list{c}
         eval(['syms ' char_list{c}])
         reaction_units = [reaction_units eval(char_list{c})];
     end
 end
 reaction_parameter_index = unique(reaction_units); % list of unique parameters
+reaction_parameter_index
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -71,9 +73,9 @@ y0_cell = {y0_vec_primary, y0_vec_neg}; % all conditions in this cell will be in
 %%%%%%%%%%%%%%%%%
 %%% Specify which rate parameters to fit and specify values for "given"
 %%% parameters
-
+% return
 % specify subset of parameters to fit
-fit_indices = 1:6;
+fit_indices = [1,2,3,4,5,6,7,8];
 n_inference_runs = 20;
 sim_noise = 1e-2*S0; % gaussian noise to add to simulated data
 
@@ -83,14 +85,18 @@ k = 0.025; % association rate (s^-1 nM^-1)
 kc = 200; % Cas13 catalytic rate
 rcg = 1e-2; % off rate for Cas13:gRNA
 rga = 1e-2; % off rate for gRNA:Activator
+ka_cga = 1e0; %association constant for cas13 with guide for activator
+rcga = 0.025; %association rate for cas113 with guide for activator
 rns = 1e3; % off rate for all nonspecific interactions
 
 % get vector of guessed param values
 true_param_vec = eval(reaction_parameter_index);
+% kd_cga_indices = find(strcmp(reaction_parameter_index,{'ka_cga'}));
+% true_param_vec(kd_cga_indices) = 0;
 
 % specify degree of uncertainty for each param value (need to play with
 % this)
-sigma_vec = [1e3, 1e1, 1e1, 1e1, 1e1, 1e1];
+sigma_vec = [1e3, 1e1, 1e10, 1e1, 1e1, 1e5, 1e1, 1e1];
 
 %%%%%%%%%%% Generate "experimental data" using true param values %%%%%%%%%%
 
