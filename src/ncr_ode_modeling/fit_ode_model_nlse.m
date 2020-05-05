@@ -38,9 +38,14 @@ reaction_parameter_index = unique(reaction_units); % list of unique parameters
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %specify conditions to fit (ideally this info would be loaded with data)
 
-t_max = 3600; % duration of time to solve for
-A10 = 1e-1; % initial target RNA concentration (nM)
-S0 = 200; % reporter concentration
+exp_data = readtable('./data/042520 20nM wobble+mismatch raw data_full_by_cond_no extra_rows.csv');
+
+num_replicates = 3;
+
+t_max = max(exp_data.time_s); % duration of time to solve for
+A10 = 0.02; % initial target RNA concentration (nM)
+%S0 = 200; % reporter concentration
+S0 = 3500; % reporter concentration
 RNP1 = 20; 
 
 
@@ -88,6 +93,8 @@ true_param_vec = eval(reaction_parameter_index);
 sigma_vec = [1e3, 1e1, 1e1, 1e1, 1e1, 1e1];
 
 %%%%%%%%%%% Generate "experimental data" using true param values %%%%%%%%%%
+
+%{
 % rate vector to substitute into
 rate_vec_val = rate_vec;
 
@@ -111,6 +118,32 @@ for f = 1:length(y0_cell)
     fluo_cell_raw{f} = sum(y_fit(:,f_indices),2);
     time_cell_raw{f} = t_fit;
 end
+%}
+%%%%%%%%%%%%%%%%%%%%%% Process exp data %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+f_indices = find(strcmp(full_reactant_list,{'F'})); % get indices of fluorescent reporter
+
+% Make locations for data
+fluo_cell_raw = cell(1,length(y0_cell)*num_replicates);
+time_cell_raw = cell(1,length(y0_cell)*num_replicates);
+
+%adding primary only data
+fluo_cell_raw{1}=exp_data.x1_20nM_0_05nM_0_02_20____-exp_data.x1_20nM_0_05nM_0_02_20____(1);
+fluo_cell_raw{2}=exp_data.x1_20nM_0_05nM_0_02_20_____1-exp_data.x1_20nM_0_05nM_0_02_20_____1(1);
+fluo_cell_raw{3}=exp_data.x1_20nM_0_05nM_0_02_20_____2-exp_data.x1_20nM_0_05nM_0_02_20_____2(1);
+
+%adding neg data
+fluo_cell_raw{4}=exp_data.x1_20nM_0_05nM_0_0_20____-exp_data.x1_20nM_0_05nM_0_0_20____(1);
+fluo_cell_raw{5}=exp_data.x1_20nM_0_05nM_0_0_20_____1-exp_data.x1_20nM_0_05nM_0_0_20_____1(1);
+fluo_cell_raw{6}=exp_data.x1_20nM_0_05nM_0_0_20_____2-exp_data.x1_20nM_0_05nM_0_0_20_____2(1);
+
+%adding times
+time_cell_raw{1}=exp_data.time_s;
+time_cell_raw{2}=exp_data.time_s;
+time_cell_raw{3}=exp_data.time_s;
+time_cell_raw{4}=exp_data.time_s;
+time_cell_raw{5}=exp_data.time_s;
+time_cell_raw{6}=exp_data.time_s;
+
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% Prepare for fits %%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -138,15 +171,15 @@ end
 
 % define fitting function
 fit_fun = @(rate_params,time_exp_array) ode_objfunction_v2(t_max,rate_params,rate_vec_fun,...
-    Q,y0_cell,f_indices,time_exp_array);
+    Q,repelem(y0_cell, num_replicates),f_indices,time_exp_array);
 
 % generate interpolated vectors for fitting
 time_exp = 0:0.1:t_max; % need to make time res specification dynamic
-time_exp_array = repmat(time_exp',1,numel(y0_cell));
+time_exp_array = repmat(time_exp',1,numel(y0_cell)*num_replicates);
 
-fluo_exp_array = NaN(numel(time_exp),numel(y0_cell));
+fluo_exp_array = NaN(numel(time_exp),numel(y0_cell)*num_replicates);
 for f = 1:numel(fluo_cell_raw)
-    fluo_exp_array(:,f) = interp1(time_cell_raw{f},fluo_cell_raw{f},time_exp) + normrnd(0,sim_noise,1,numel(time_exp));
+    fluo_exp_array(:,f) = interp1(time_cell_raw{f},fluo_cell_raw{f},time_exp);
 end
 
 %%%%%%%%%%%%%%%%
@@ -194,3 +227,7 @@ hold on
 p = plot(time_exp,fluo_exp_array);
 q = plot(time_exp,fluo_fit_array(:,:,best_fit_index),'Color','black','LineWidth',1.5);
 legend([p(1) p(2) q(1)],'primary only','no activator', 'model fits','Location','northwest')
+
+figure(2);
+p = plot(time_exp,fluo_exp_array-fluo_fit_array(:,:,best_fit_index));
+legend([p(1) p(2)],'primary only','no activator','Location','northwest');
