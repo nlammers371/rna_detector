@@ -37,7 +37,10 @@ atom_list = {'C13','G1','G2','A1','A2','IA2','I','S','F','N'};
 
 % Define specific interactions
 spec_compound_list = {'C13:G1','C13:G2','G1:A1','G2:A2','C13:G1::A1','C13:G2::A2','I:A2'};
-spec_off_rate_list = sym({'rcg','rcg','rga','rga','rga','rga','ria'});
+syms k rcga
+spec_on_rate_list = [k, k, k, k, rcga, k]; % association rates for these compounds
+syms rcg rga kd_cga ria
+spec_off_rate_list = [rcg,rcg,rga,rga,rcga*kd_cga, rcga*kd_cga, ria]; % disassociation rates for these compounds
 syms b kc
 cat_rates =[b*kc, b*kc, 0 ,0, kc, kc, 0];
 
@@ -55,7 +58,8 @@ cat_product_list = {};
 cat_rate_list = [];
 for c = cat_indices 
     catalyst = spec_compound_list{c};
-    n_colons = contains(catalyst,'::') + 2;
+    fnd = strfind(catalyst,'::');
+    n_colons = any(horzcat(fnd(:))) + 2;
     for s = 1:numel(substrate_list)
         substrate = substrate_list{s};
         cat_compound_list = [cat_compound_list {[catalyst repelem(':',n_colons) substrate]}];
@@ -73,7 +77,7 @@ full_reactant_list = [atom_list spec_compound_list cat_compound_list];
 full_compound_list = [spec_compound_list cat_compound_list];
 full_off_rate_list = [spec_off_rate_list cat_off_rates];
 full_cat_rate_list = [zeros(size(spec_off_rate_list)) cat_rate_list];
-full_on_rate_list = sym(repelem({'k'},length(full_off_rate_list)));
+full_on_rate_list = [spec_on_rate_list repelem({k},length(full_off_rate_list))];
 
 % get dims for stoichiometry matrix (Q)
 n_reactants = length(full_reactant_list);
@@ -93,7 +97,10 @@ for f = 1:length(full_compound_list)
     
     compound = full_compound_list{f};
     % split reaction
-    delim_ind = find([contains(compound,':') contains(compound,'::') contains(compound,':::')],1,'last');
+    fnd1 = strfind(compound,':');
+    fnd2 = strfind(compound,'::');
+    fnd3 = strfind(compound,':::');
+    delim_ind = find([any(horzcat(fnd1(:))) any(horzcat(fnd2(:))) any(horzcat(fnd3(:)))],1,'last');
     reactants = strsplit(compound,delim_list{delim_ind});
     % get indices 
     compound_index = find(strcmp(full_reactant_list,{compound}));

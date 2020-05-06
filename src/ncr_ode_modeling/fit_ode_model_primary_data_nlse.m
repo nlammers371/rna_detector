@@ -5,11 +5,11 @@ close all
 
 % basic path info
 addpath('../utilities')
-DataPath = '../../out/ode_studies_v2/';
+DataPath = '../../out/ncr_ode_modeling/';
 mkdir(DataPath)
 
 % specify project to load
-project = 'ncr_basic';
+project = 'primary_only_v3';
 
 % make figure path
 FigPath = ['../../fig/ode_studies_v2/' project '/' ];
@@ -46,8 +46,8 @@ num_replicates = 3;
 
 t_max = max(exp_data.time_s); % duration of time to solve for
 A10 = 0.02; % initial target RNA concentration (nM)
-%S0 = 200; % reporter concentration
-S0 = 3500; % reporter concentration
+S0 = 200; % reporter concentration
+%S0 = 3500; % reporter concentration
 RNP1 = 20; 
 
 
@@ -73,7 +73,7 @@ y0_cell = {y0_vec_primary, y0_vec_neg}; % all conditions in this cell will be in
 %%%%%%%%%%%%%%%%%
 %%% Specify which rate parameters to fit and specify values for "given"
 %%% parameters
-return
+% return
 % specify subset of parameters to fit
 fit_indices = [1,2,3,4,5,6,7,8];
 n_inference_runs = 20;
@@ -96,7 +96,7 @@ true_param_vec = eval(reaction_parameter_index);
 
 % specify degree of uncertainty for each param value (need to play with
 % this)
-sigma_vec = [1e3, 1e1, 1e1, 1e4, 1e1, 1e5, 1e1, 1e1];
+sigma_vec = [1e3, 1e1, 1e1, 1e1, 1e1, 1e5, 1e1, 1e1];
 
 %%%%%%%%%%% Generate "experimental data" using true param values %%%%%%%%%%
 
@@ -176,7 +176,7 @@ end
 
 
 % define fitting function
-fit_fun = @(rate_params,time_exp_array) ode_objfunction_v2(t_max,rate_params,rate_vec_fun,...
+fit_fun = @(rate_params,time_exp_array) (3500/200)*ode_objfunction_v2(t_max,rate_params,rate_vec_fun,...
     Q,repelem(y0_cell, num_replicates),f_indices,time_exp_array);
 
 % generate interpolated vectors for fitting
@@ -228,7 +228,7 @@ end
 
 
 [~,best_fit_index] = min(res_vec);
-figure;
+
 hold on
 p = plot(time_exp,fluo_exp_array);
 q = plot(time_exp,fluo_fit_array(:,:,best_fit_index),'Color','black','LineWidth',1.5);
