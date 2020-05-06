@@ -9,7 +9,7 @@ DataPath = '../../out/ncr_ode_modeling/';
 mkdir(DataPath)
 
 % specify project to load
-project = 'primary_only_v2';
+project = 'primary_only_v3';
 
 % make figure path
 FigPath = ['../../fig/ode_studies_v2/' project '/' ];
@@ -85,8 +85,8 @@ k = 0.025; % association rate (s^-1 nM^-1)
 kc = 200; % Cas13 catalytic rate
 rcg = 1e-2; % off rate for Cas13:gRNA
 rga = 1e-2; % off rate for gRNA:Activator
-ka_cga = 1e0; %association constant for cas13 with guide for activator
-rcga = 0.025; %association rate for cas113 with guide for activator
+kd_cga = 1e-9; %dissassociation constant for cas13 with guide for activator
+rcga = 1e-3; %association rate for cas113 with guide for activator
 rns = 1e3; % off rate for all nonspecific interactions
 
 % get vector of guessed param values
@@ -96,7 +96,7 @@ true_param_vec = eval(reaction_parameter_index);
 
 % specify degree of uncertainty for each param value (need to play with
 % this)
-sigma_vec = [1e3, 1e1, 1e10, 1e1, 1e1, 1e5, 1e1, 1e1];
+sigma_vec = [1e3, 1e1, 1e1, 1e4, 1e1, 1e5, 1e1, 1e1];
 
 %%%%%%%%%%% Generate "experimental data" using true param values %%%%%%%%%%
 
