@@ -79,4 +79,36 @@ rcga = 6.9116e-05; %on rate for cas13:guide and activatior
 rga =  0.062162; % off rate for gRNA:Activator
 rns = 1313.1; % off rate for all nonspecific interactions
 
+NCR_data_fit_1:
+b = 3.2086e-09
+k = 0.0021419
+kc = 8518.5
+kd_cga = 2.3925e-07
+rcg = 0.00076864
+rcga = 0.00015127
+rga = 0.011458
+ria = 2.254
+rns = 713.39
+
+NCR_data_fit_2:
+b = 3.1814e-08
+k = 0.0020007
+kc = 11725
+kd_cga = 7.4474e-06
+rcg = 0.059095
+rcga = 0.00011248
+rga = 0.24977
+ria = 1098
+rns = 319
+
+cage_data_fit_1:
+b = 5.5447e-08
+k = 0.0037303
+kc = 132.56
+kd_cga = 6.7197e-08
+rcg = 0.064485
+rcga = 0.00092709
+rga = 0.3906
+ria = 1.2668e+05
+rns = 180.61
 
