@@ -110,7 +110,7 @@ true_param_vec = eval(reaction_parameter_index);
 % specify degree of uncertainty for each param value (need to play with
 % this)
 % param order [ b, k, kc, kd_cga, rcg, rcga, rga, ria, rns]
-sigma_vec = [1e3, 1e1, 1e1, 1e3, 1e1, 1e3, 1e1, 1e3, 1e1];
+sigma_vec = [1e3, 1e1, 1e1, 1e1, 1e1, 1e1, 1e1, 1e3, 1e1];
 
 %%%%%%%%%%% Generate "experimental data" using true param values %%%%%%%%%%
 
