@@ -1,0 +1,82 @@
+best fit parameters-
+
+Zeroed_fitting_data:
+b = 1.6541e-06 ; % Cas13 1/SNR
+k = 0.012323; % association rate (s^-1 nM^-1)
+kc = 1306.6; % Cas13 catalytic rate
+rcg = 0.039421; % off rate for Cas13:gRNA
+rga = 0.00054755; % off rate for gRNA:Activator
+rns = 268.11; % off rate for all nonspecific interactions
+
+V2 - adjusting fit_index only not sigma:
+b = 5.7806e-07; % Cas13 1/SNR
+k =  0.018212; % association rate (s^-1 nM^-1)
+ka_cga =  1e9 or 0... unclear; %association constant for cas13:guide and activatior 
+kc = 721.48; % Cas13 catalytic rate 
+rcg =  0.0075566; % off rate for Cas13:gRNA      
+rcga = 0.027711; %off rate for cas13:guide and activatior      
+rga =  0.11657; % off rate for gRNA:Activator
+rns = 2089.5; % off rate for all nonspecific interactions
+
+
+V2 - adjusting sigma:
+b = 6.0283e-08; % Cas13 1/SNR
+k =  0.33091; % association rate (s^-1 nM^-1)
+ka_cga =  1e9; %association constant for cas13:guide and activatior 
+kc = 70.833; % Cas13 catalytic rate 
+rcg =  0.0012441; % off rate for Cas13:gRNA      
+rcga = 0.0012151; %off rate for cas13:guide and activatior      
+rga =  0.10094; % off rate for gRNA:Activator
+rns = 3065.2; % off rate for all nonspecific interactions
+
+V2 - allowing large ka swing:
+b = 1.9613e-06; % Cas13 1/SNR
+k =  0.063688; % association rate (s^-1 nM^-1)
+ka_cga =  0.40174; %association constant for cas13:guide and activatior 
+kc = 162.57; % Cas13 catalytic rate 
+rcg =  0.015732; % off rate for Cas13:gRNA      
+rcga = 35.863; %off rate for cas13:guide and activatior      
+rga =  0.0050111; % off rate for gRNA:Activator
+rns = 61.094; % off rate for all nonspecific interactions
+
+V3 - modeled_on_rate
+b = 8.1071e-06; % Cas13 1/SNR
+k =  0.036211; % association rate (s^-1 nM^-1)
+kc = 171.9; % Cas13 catalytic rate 
+kd_cga =  1.0506e-07; %dissassociation constant for cas13:guide and activatior 
+rcg =  0.0047382; % off rate for Cas13:gRNA      
+rcga = 0.00019532; %on rate for cas13:guide and activatior      
+rga =  0.020341; % off rate for gRNA:Activator
+rns = 584.37; % off rate for all nonspecific interactions
+
+v3 modeled_on_rate_multiplier (should be in proper units):
+b = 7.4162e-06; % Cas13 1/SNR
+k =  0.012553; % association rate (s^-1 nM^-1)
+kc = 229.98; % Cas13 catalytic rate 
+kd_cga =  1.2136e-12; %dissassociation constant for cas13:guide and activatior 
+rcg =  0.19425; % off rate for Cas13:gRNA      
+rcga = 0.0019832; %on rate for cas13:guide and activatior      
+rga =  0.0061094; % off rate for gRNA:Activator
+rns = 137.67; % off rate for all nonspecific interactions
+
+geometric mean fit values:
+b = 7.0612e-06; % Cas13 1/SNR
+k =  0.053098; % association rate (s^-1 nM^-1)
+kc = 305.47; % Cas13 catalytic rate 
+kd_cga =  1.6861e-07; %dissassociation constant for cas13:guide and activatior 
+rcg =  0.026973; % off rate for Cas13:gRNA      
+rcga = 0.005668; %on rate for cas13:guide and activatior      
+rga =  0.014742; % off rate for gRNA:Activator
+rns = 1235; % off rate for all nonspecific interactions
+
+v3 modeled_on_rate_multiplier_restricted_kd:
+b = 6.3698e-06; % Cas13 1/SNR
+k =  0.023604; % association rate (s^-1 nM^-1)
+kc = 638.66; % Cas13 catalytic rate 
+kd_cga =  1.4714e-08; %dissassociation constant for cas13:guide and activatior 
+rcg =  0.0050912; % off rate for Cas13:gRNA      
+rcga = 6.9116e-05; %on rate for cas13:guide and activatior      
+rga =  0.062162; % off rate for gRNA:Activator
+rns = 1313.1; % off rate for all nonspecific interactions
+
+

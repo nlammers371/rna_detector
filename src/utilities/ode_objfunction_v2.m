@@ -15,7 +15,7 @@ function f_trend_interp = ode_objfunction_v2(t_max,rate_params,rate_fun,stoich_m
         y0_vec = y0_cell{i};
         
         % solve ODE numerically
-        [t_sol,y_sol]=ode15s(@(t,y) ncr_solver(t,y,rate_vec,stoich_mat), [0 t_max], y0_vec);
+        [t_sol,y_sol]=ode15s(@(t,y) ncr_solver_v2(t,y,rate_vec,stoich_mat), [0 t_max], y0_vec);
 
         % get fluorescence trend
         f_trend_raw = sum(y_sol(:,fluo_indices),2);
