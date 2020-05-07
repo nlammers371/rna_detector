@@ -45,17 +45,17 @@ project_suffix = '_v3';
 % Define basic reaction components
 
 % Generate list of relevant ractants
-atom_list = {'A1','G1','NG1','C13','S','F'};
+atom_list = {'A1','G1','NG1','nC13','cC13','S','F'};
 
 % Define specific interactions
-spec_compound_list = {'C13:G1','G1:A1','C13:G1::A1'}; % double colon denotes where split occurs during dissociation
+spec_compound_list = {'nC13:cC13', 'nC13:cC13:G1','G1:A1','nC13:cC13:G1::A1'}; % double colon denotes where split occurs during dissociation
 syms k rcga
-spec_on_rate_list = [k, k, rcga]; % association rates for these compounds
-syms rcg rga kd_cga
-spec_off_rate_list = [rcg,rga,rcga*kd_cga]; % disassociation rates for these compounds
+spec_on_rate_list = [0, k, k, rcga]; % association rates for these compounds
+syms rcg rga kd_cga rdeg
+spec_off_rate_list = [rdeg, rcg,rga,rcga*kd_cga]; % disassociation rates for these compounds
 %ka_cga = 1e9;
 syms b kc % initialize symbolic variables 
-cat_rates =[b*kc, 0, kc]; % b << 1 is backgrounds to activated Cas13 ratio
+cat_rates =[0, b*kc, 0, kc]; % b << 1 is backgrounds to activated Cas13 ratio
 
 % Specify substrate-product pairs
 substrate_list = {'S','G1'};
