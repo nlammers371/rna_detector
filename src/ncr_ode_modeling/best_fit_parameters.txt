@@ -112,3 +112,12 @@ rga = 0.3906
 ria = 1.2668e+05
 rns = 180.61
 
+Primary_only_high_fluorescence_multiplier_kdPegged:
+b = 1.1588e-05; % Cas13 1/SNR
+k =  0.010065; % association rate (s^-1 nM^-1)
+kc = 3447.9; % Cas13 catalytic rate 
+kd_cga =  1.8297e-09; %dissassociation constant for cas13:guide and activatior 
+rcg =  0.0017432; % off rate for Cas13:gRNA      
+rcga = 0.00058159; %on rate for cas13:guide and activatior      
+rga =  0.010552; % off rate for gRNA:Activator
+rns = 13145; % off rate for all nonspecific interactions

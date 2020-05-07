@@ -49,6 +49,7 @@ A10 = 0.02; % initial target RNA concentration (nM)
 S0 = 200; % reporter concentration
 %S0 = 3500; % reporter concentration
 RNP1 = 20; 
+fluorescence_multiplier = 8000;
 
 
 %%%% specify initial reactant concentrations 
@@ -176,7 +177,7 @@ end
 
 
 % define fitting function
-fit_fun = @(rate_params,time_exp_array) (3500/200)*ode_objfunction_v2(t_max,rate_params,rate_vec_fun,...
+fit_fun = @(rate_params,time_exp_array) (fluorescence_multiplier/200)*ode_objfunction_v2(t_max,rate_params,rate_vec_fun,...
     Q,repelem(y0_cell, num_replicates),f_indices,time_exp_array);
 
 % generate interpolated vectors for fitting
@@ -228,6 +229,9 @@ end
 
 
 [~,best_fit_index] = min(res_vec);
+
+params = param_fit_array(best_fit_index, :)
+param_order = reaction_parameter_index
 
 hold on
 p = plot(time_exp,fluo_exp_array);
