@@ -46,48 +46,61 @@ num_replicates = 3;
 
 t_max = max(exp_data.time_s); % duration of time to solve for
 A10 = 0.02; % initial target RNA concentration (nM)
-%S0 = 200; % reporter concentration
-S0 = 3500; % reporter concentration
+S0 = 200; % reporter concentration
+%S0 = 3500; % reporter concentration
 RNP1 = 20; 
+IA2 = 20;
+RNP2 = 0.05;
+fluorescence_multiplier = 8000;
 
 
 %%%% specify initial reactant concentrations 
 % vectors for substitutions
-init_sym_array =     {'A1' 'S' 'C13' 'G1'};
-init_val_vec_primary =   [A10  S0  RNP1 RNP1]; % primary only
-init_val_vec_neg =    [0  S0  RNP1 RNP1]; % no activator
+init_sym_array =     {'A1' 'S' 'C13' 'G1' 'G2' 'IA2'};
+init_val_vec_primary =   [A10  S0  (RNP1+RNP2) (2*RNP1) (2*RNP2) 0]; % primary only
+init_val_vec_neg =    [0  S0  (RNP1+RNP2) (2*RNP1) (2*RNP2) 0]; % no activators
+init_val_vec_cage =   [0  S0  (RNP1+RNP2) (2*RNP1) (2*RNP2) IA2]; % Cage only
+%init_val_vec_ncr =    [A10  S0  (RNP1+RNP2) (2*RNP1) (2*RNP2) IA2]; % NCR
 
 % initialize concentration vector. Everything not explicitly assigned taken
 % to be zero
 y0_vec_primary = zeros(size(full_reactant_list));
 y0_vec_neg = zeros(size(full_reactant_list));
+y0_vec_cage = zeros(size(full_reactant_list));
+%y0_vec_ncr = zeros(size(full_reactant_list));
 for i = 1:numel(init_sym_array)
     species = init_sym_array{i};
     spec_indices = find(strcmp(full_reactant_list,species));      
     y0_vec_primary(spec_indices) = init_val_vec_primary(i);    
     y0_vec_neg(spec_indices) = init_val_vec_neg(i);
+    y0_vec_cage(spec_indices) = init_val_vec_cage(i);
+    %y0_vec_ncr(spec_indices) = init_val_vec_ncr(i);
 end
 
-y0_cell = {y0_vec_primary, y0_vec_neg}; % all conditions in this cell will be included in fit routine
+y0_cell = {y0_vec_primary, y0_vec_neg, y0_vec_cage};%, y0_vec_ncr}; % all conditions in this cell will be included in fit routine
 
 %%%%%%%%%%%%%%%%%
 %%% Specify which rate parameters to fit and specify values for "given"
 %%% parameters
-return
+% reaction_parameter_index
+% full_reactant_list
+% return
 % specify subset of parameters to fit
-fit_indices = [1,2,3,4,5,6,7,8];
+fit_indices = [1,2,3,4,5,6,7,8,9];
 n_inference_runs = 20;
 sim_noise = 1e-2*S0; % gaussian noise to add to simulated data
 
 % define initial guess for parameters to fit
-b = 1e-6; % Cas13 1/SNR
-k = 0.025; % association rate (s^-1 nM^-1)
-kc = 200; % Cas13 catalytic rate
-rcg = 1e-2; % off rate for Cas13:gRNA
-rga = 1e-2; % off rate for gRNA:Activator
-kd_cga = 1e-9; %dissassociation constant for cas13 with guide for activator
-rcga = 1e-3; %association rate for cas113 with guide for activator
-rns = 1e3; % off rate for all nonspecific interactions
+b = 6.3698e-06; % Cas13 1/SNR
+k =  0.023604; % association rate (s^-1 nM^-1)
+kc = 638.66; % Cas13 catalytic rate 
+kd_cga =  1.4714e-08; %dissassociation constant for cas13:guide and activatior 
+rcg =  0.0050912; % off rate for Cas13:gRNA      
+rcga = 6.9116e-05; %on rate for cas13:guide and activatior      
+rga =  0.062162; % off rate for gRNA:Activator
+rns = 1313.1; % off rate for all nonspecific interactions
+
+ria = 1e3; %off rate for cage and activator
 
 % get vector of guessed param values
 true_param_vec = eval(reaction_parameter_index);
@@ -96,7 +109,8 @@ true_param_vec = eval(reaction_parameter_index);
 
 % specify degree of uncertainty for each param value (need to play with
 % this)
-sigma_vec = [1e3, 1e1, 1e1, 1e4, 1e1, 1e5, 1e1, 1e1];
+% param order [ b, k, kc, kd_cga, rcg, rcga, rga, ria, rns]
+sigma_vec = [1e3, 1e1, 1e1, 1e3, 1e1, 1e3, 1e1, 1e3, 1e1];
 
 %%%%%%%%%%% Generate "experimental data" using true param values %%%%%%%%%%
 
@@ -142,13 +156,32 @@ fluo_cell_raw{4}=exp_data.x1_20nM_0_05nM_0_0_20____-exp_data.x1_20nM_0_05nM_0_0_
 fluo_cell_raw{5}=exp_data.x1_20nM_0_05nM_0_0_20_____1-exp_data.x1_20nM_0_05nM_0_0_20_____1(1);
 fluo_cell_raw{6}=exp_data.x1_20nM_0_05nM_0_0_20_____2-exp_data.x1_20nM_0_05nM_0_0_20_____2(1);
 
+%adding cage data
+fluo_cell_raw{7}=exp_data.x1_20nM_0_05nM_0_0_20_NCR061-exp_data.x1_20nM_0_05nM_0_0_20_NCR061(1);
+fluo_cell_raw{8}=exp_data.x1_20nM_0_05nM_0_0_20_NCR061_1-exp_data.x1_20nM_0_05nM_0_0_20_NCR061_1(1);
+fluo_cell_raw{9}=exp_data.x1_20nM_0_05nM_0_0_20_NCR061_2-exp_data.x1_20nM_0_05nM_0_0_20_NCR061_2(1);
+
+%adding ncr data
+% fluo_cell_raw{10}=exp_data.x1_20nM_0_05nM_0_02_20_NCR061-exp_data.x1_20nM_0_05nM_0_02_20_NCR061(1);
+% fluo_cell_raw{11}=exp_data.x1_20nM_0_05nM_0_02_20_NCR061_1-exp_data.x1_20nM_0_05nM_0_02_20_NCR061_1(1);
+% fluo_cell_raw{12}=exp_data.x1_20nM_0_05nM_0_02_20_NCR061_2-exp_data.x1_20nM_0_05nM_0_02_20_NCR061_2(1);
+
 %adding times
 time_cell_raw{1}=exp_data.time_s;
 time_cell_raw{2}=exp_data.time_s;
 time_cell_raw{3}=exp_data.time_s;
+
 time_cell_raw{4}=exp_data.time_s;
 time_cell_raw{5}=exp_data.time_s;
 time_cell_raw{6}=exp_data.time_s;
+
+time_cell_raw{7}=exp_data.time_s;
+time_cell_raw{8}=exp_data.time_s;
+time_cell_raw{9}=exp_data.time_s;
+
+% time_cell_raw{10}=exp_data.time_s;
+% time_cell_raw{11}=exp_data.time_s;
+% time_cell_raw{12}=exp_data.time_s;
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -176,7 +209,7 @@ end
 
 
 % define fitting function
-fit_fun = @(rate_params,time_exp_array) ode_objfunction_v2(t_max,rate_params,rate_vec_fun,...
+fit_fun = @(rate_params,time_exp_array) (fluorescence_multiplier/200)*ode_objfunction_v2(t_max,rate_params,rate_vec_fun,...
     Q,repelem(y0_cell, num_replicates),f_indices,time_exp_array);
 
 % generate interpolated vectors for fitting
@@ -228,6 +261,10 @@ end
 
 
 [~,best_fit_index] = min(res_vec);
+
+params = param_fit_array(best_fit_index, :)
+param_order = reaction_parameter_index
+
 figure;
 hold on
 p = plot(time_exp,fluo_exp_array);
