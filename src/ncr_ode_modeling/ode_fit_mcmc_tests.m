@@ -75,7 +75,7 @@ name_cell = {'NCR', 'Primary Only', 'Cage Only', 'No Activator'};
 %%% parameters
 
 % specify subset of parameters to fit
-fit_indices = 1:numel(reaction_parameter_index);
+fit_indices = [1:7 8 9];%numel(reaction_parameter_index);
 n_inference_runs = 20;
 sim_noise = 1e-2*S0;
 
@@ -157,117 +157,72 @@ end
 
 %% perform MCMC optimization 
 
-% define helper functions for sampling
-mu_fun = @(mu_in,s_factor) log(mu_in.^2 ./ sqrt(s_factor.^2.*mu_in.^2 + mu_in.^2));
-sigma_fun = @(mu_in,s_factor) sqrt(log(s_factor.^2.*mu_in.^2./mu_in.^2 + 1));
+% generate data structure for mcmc algorithm to use
+data = struct;
+data.ydata = fluo_exp_array;
+data.xdata = time_exp_array;
 
-% define MCMC parameters
-temp_init = 1; % impacts rate of acceptance for jumps (will be tuned)
-sample_mem = 10; % sets # of previous samples to use for calc acceptance rate
-acceptance_target = 0.3; % target rate at which proposals are accepted
-sample_batch_size = 3; % number of parameters to sample for proposal step
-jump_sigma = .05; % defined as fraction of param value
-n_steps = 1e3; % number of sampling steps
-n_chains = 1; % number of chains to run in parallel (kept at 1 for now)
-noise = 6; % experimental error--sets scale for fit likelihood calculations
+% high-level simulation paramters 
+method      = 'dram'; % adaptation method, 'mh', 'dr', 'am', or 'dram'
+nsimu       = 1000;   % number of simulations
+adaptint    = 100;    % how often to adapt the proposal
 
-% initialize arrays to store results
-param_array = NaN(n_steps,numel(reaction_parameter_index),n_chains); % parameters
-logL_array = NaN(n_steps,n_chains); % likelihood score
-temperature_array = NaN(n_steps,n_chains); % keep track of temp over time
-deltaL_array = NaN(n_steps,n_chains);
-acc_rate_array = NaN(n_steps,n_chains); % keep track of acceptance rate
+% set options 
+options.method      = method;        % adaptation method (mh,am,dr,dram)
+options.nsimu       = nsimu;         % n:o of simulations
+options.qcov        = eye(11)*0.001; % proposal covariance
+options.adaptint    = adaptint; % adaptation interval
+options.printint    = 200; % how often to show info on acceptance ratios
+options.verbosity   = 0;  % how much to show output in Matlab window
+options.waitbar     = 1;  % show garphical waitbar
+options.updatesigma = 1;  % update error variance
+options.stats       = 1;  % save extra statistics in results
 
-chain = 1;
 
-for chain = 1:n_chains
-    % select starting values
-    param_array(1,fixed_indices,chain) = true_param_vec(fixed_indices);
-    pass_flag = false;
-    while ~pass_flag
-        mu_vec = mu_fun(true_param_vec,param_sigma_vec);
-        sigma_vec = sigma_fun(true_param_vec,param_sigma_vec);
-        prop_param_vals = lognrnd(mu_vec,sigma_vec);
-        pass_flag = all(prop_param_vals<=ub_vec&prop_param_vals>=lb_vec);   
+
+% specify fit funtions
+modelfun = @(xdata,theta) ode_objfunction_v2(t_max,theta,rate_vec_fun,...
+                Q,y0_cell,f_indices,xdata);
+            
+ssfun = @(theta,data) sum(sum((data.ydata-modelfun(data.xdata,theta)).^2));
+
+% specify parameters and set initial values
+params = {};
+iter = 1;
+for p = fit_indices
+    if iter == 1
+        params = {{char(reaction_parameter_index(p)), rand()*true_param_vec(p), lb_vec(p), ub_vec(p)}};
+    else
+        params = {params{:} {char(reaction_parameter_index(p)), rand()*true_param_vec(p), lb_vec(p), ub_vec(p)}};    
     end
-    param_array(1,:) = prop_param_vals;
-    
-    % initialize
-    params_current = param_array(1,:);
-    prediction_current = fit_fun(params_current,time_exp_array);
-    logL_current = -sum(0.5*((fluo_exp_array(:) - prediction_current(:))/noise).^2);
-    acc_rate_array(1,chain) = true;
-    temperature_array(1) = temp_init;
+    iter = iter + 1;
+end    
 
-    % iterate through sampling steps
-    for step = 2:n_steps
+model.ssfun  = ssfun;
+model.sigma2 = 1e-6; 
 
-        tic                   
-        %%%%%%%%%%%%%%%%%%%%%%%%
-        % propose new move
-        %%%%%%%%%%%%%%%%%%%%%%%%
-        % select params to sample
-        prop_param_indices = randsample(fit_indices,sample_batch_size,false);
-        old_param_vals = params_current(prop_param_indices);
+options.nsimu = 1000;
+options.updatesigma = 0;
+% options.qcov = tcov; % covariance from the initial fit
 
-        pass_flag = false;
-        iter = 1;
-        while ~pass_flag
-            % generate new prop vals
-            m_factors = normrnd(0,jump_sigma,1,sample_batch_size);
-            prop_param_vals = old_param_vals.*10.^m_factors;
-            % check that vals are inside bounds
-            pass_flag = all(prop_param_vals<=ub_vec(prop_param_indices)&prop_param_vals>=lb_vec(prop_param_indices));
-%             m_factors = normrnd(0,jump_sigma,1,sample_batch_size);
-%             mu_vec = mu_fun(old_param_vals,jump_sigma);
-%             sigma_vec = sigma_fun(old_param_vals,jump_sigma);
-%             prop_param_vals = lognrnd(mu_vec,sigma_vec);%old_param_vals.*10.^m_factors;
-%             % check that vals are inside bounds
-%             pass_flag = all(prop_param_vals<=ub_vec(prop_param_indices)&prop_param_vals>=lb_vec(prop_param_indices));
-%             iter = iter + 1;
-%             if iter > 100
-%                 error('asfa')
-%             end
-        end
+[results,chain,s2chain] = mcmcrun(model,data,params,options);
 
-        %%%%%%%%%%%%%%%%%%%%%%%%
-        % perform MH step 
-        %%%%%%%%%%%%%%%%%%%%%%%%
-        params_prop = params_current;
-        params_prop(prop_param_indices) = prop_param_vals;
-        prediction_prop = fit_fun(params_prop,time_exp_array);
-        logL_prop = -sum(0.5*((fluo_exp_array(:) - prediction_prop(:))/noise).^2);
+%%
+close all
 
-        % calculate likelhood diff
-        deltaL = (logL_prop-logL_current) / .1;    
-        deltaL_array(step,chain) = deltaL;
-        move_flag = exp(deltaL/temp_init) > rand();
+figure(2); clf
+mcmcplot(chain,[],results,'chainpanel');
 
-        if move_flag        
-            % load prediction into memory
-            prediction_current = prediction_prop;
-            logL_current = logL_prop;
-            params_current = params_prop;
-        end
+mcmc_sol = results.mean;
+mcmc_curves = modelfun(time_exp_array,mcmc_sol);
 
-        param_array(step,:) = params_current;
-        logL_array(step,chain) = logL_current;
-        temperature_array(step,chain) = temp_init;
-        acc_rate_array(step,chain) = move_flag;
-        toc
-    end
-end   
+figure;
+hold on
+plot(fluo_exp_array)
+plot(mcmc_curves)
 
+figure; clf
+mcmcplot(chain,[],results,'chainpanel');
 
-
-
-
-
-
-
-
-
-
-
-
-
+figure; clf
+mcmcplot(chain,[],results,'pairs');

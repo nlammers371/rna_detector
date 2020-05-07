@@ -30,7 +30,7 @@ for i = 1:numel(reaction_rate_index)
         reaction_units = [reaction_units eval(char_list{c})];
     end
 end
-reaction_unit_index = unique(reaction_units);
+reaction_parameter_index = unique(reaction_units);
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -38,7 +38,7 @@ reaction_unit_index = unique(reaction_units);
 %
 t_max = 3600; % duration of time to solve for (need to change this to calculate dynamically)
 t_res = 0.1;
-A10 = 1e-1; % concentration of target RNA
+A10 = 0.2; % concentration of target RNA
 IA20 = 20; % caged secondary activator
 S0 = 200; % reporter substrate
 RNP1 = 20; % Cas13:gRNA1
@@ -75,30 +75,32 @@ name_cell = {'NCR', 'Primary Only', 'Cage Only', 'No Activator'};
 %%% parameters
 
 % specify subset of parameters to fit
-fit_indices = 1:7;
+fit_indices = 1:numel(reaction_parameter_index);
 n_inference_runs = 20;
 sim_noise = 1e-2*S0;
 
 % define "true" rates to fit
 b = 1e-6; % Cas13 1/SNR
 k = 0.025; % association rate (s^-1 nM^-1)
-kc = 200; % Cas13 catalytic rate
-rcg = 1e-2; % off rate for Cas13:gRNA
-rga = 1e-2; % off rate for gRNA:Activator
+kc = 600; % Cas13 catalytic rate
+kd_cga = 1e-8;
+rcg = 5e-3; % off rate for Cas13:gRNA
+rcga = 1e-5; % off rate for gRNA:Activator
+rga = 1e-2;
 ria = 1e-2; % off rate for CleavedCage:Activator
 rns = 1e3; % off rate for all nonspecific interactions
 
 % get set of true param values
-true_param_vec = eval(reaction_unit_index);
+true_param_vec = eval(reaction_parameter_index);
 
 % specify degree of uncertainty for each param value
-sigma_vec = [1e3, 1e1, 1e1, 1e1, 1e1, 1e1, 1e1];
+param_sigma_vec = ones(1,9)*1e3;
 
 % rate vector to substitute into
 rate_vec_val = rate_vec;
 % generate valued long rate vec
-for r = 1:numel(reaction_unit_index)
-    rr = reaction_unit_index(r);        
+for r = 1:numel(reaction_parameter_index)
+    rr = reaction_parameter_index(r);        
     rate_vec_val = subs(rate_vec_val,rr,eval(rr));    
 end
 rate_vec_val = double(rate_vec_val);
@@ -120,10 +122,10 @@ end
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% Prepare for fits %%%%%%%%%%%%%%%%%%%%%%%%%%
 
 % substitute given values into rate vector
-fixed_indices = find(~ismember(1:numel(reaction_unit_index),fit_indices));
+fixed_indices = find(~ismember(1:numel(reaction_parameter_index),fit_indices));
 rate_vec_fit_round1 = rate_vec;
 for r = fixed_indices
-    rr = reaction_unit_index(r);        
+    rr = reaction_parameter_index(r);        
     rate_vec_fit_round1 = subs(rate_vec_fit_round1,rr,eval(rr));    
 end
 
@@ -133,10 +135,10 @@ rate_vec_fun = matlabFunction(rate_vec_fit_round1);
 % now set bounds for variables to be inferred
 ub_vec = NaN(size(fit_indices));
 lb_vec = NaN(size(fit_indices));
-for r = 1:numel(reaction_unit_index)
-    rate_init = eval(reaction_unit_index(r));        
-    ub_vec(r) = 2*sigma_vec(r)*rate_init;
-    lb_vec(r) = rate_init/sigma_vec(r)/2;    
+for r = 1:numel(reaction_parameter_index)
+    rate_init = eval(reaction_parameter_index(r));        
+    ub_vec(r) = 2*param_sigma_vec(r)*rate_init;
+    lb_vec(r) = rate_init/param_sigma_vec(r)/2;    
 end
 
 % define fitting function
@@ -155,42 +157,44 @@ end
 
 %% perform MCMC optimization 
 
+% define helper functions for sampling
+mu_fun = @(mu_in,s_factor) log(mu_in.^2 ./ sqrt(s_factor.^2.*mu_in.^2 + mu_in.^2));
+sigma_fun = @(mu_in,s_factor) sqrt(log(s_factor.^2.*mu_in.^2./mu_in.^2 + 1));
+
 % define MCMC parameters
-temp_init = 300; % impacts rate of acceptance for jumps (will be tuned)
+temp_init = 1; % impacts rate of acceptance for jumps (will be tuned)
 sample_mem = 10; % sets # of previous samples to use for calc acceptance rate
 acceptance_target = 0.3; % target rate at which proposals are accepted
 sample_batch_size = 3; % number of parameters to sample for proposal step
-jump_sigma = .1; % defined as fraction of param value
+jump_sigma = .15; % defined as fraction of param value
 n_steps = 1e2; % number of sampling steps
 n_chains = 1; % number of chains to run in parallel (kept at 1 for now)
-noise = 5; % experimental error--sets scale for fit likelihood calculations
+noise = 6; % experimental error--sets scale for fit likelihood calculations
 
 % initialize arrays to store results
-param_array = NaN(n_steps,numel(reaction_unit_index),n_chains); % parameters
+param_array = NaN(n_steps,numel(reaction_parameter_index),n_chains); % parameters
 logL_array = NaN(n_steps,n_chains); % likelihood score
 temperature_array = NaN(n_steps,n_chains); % keep track of temp over time
 acc_rate_array = NaN(n_steps,n_chains); % keep track of acceptance rate
 
 chain = 1;
 
-parfor chain = 1:n_chains
+for chain = 1:n_chains
     % select starting values
     param_array(1,fixed_indices,chain) = true_param_vec(fixed_indices);
-    for r = fit_indices
-        pass_flag = false;
-        init_val = true_param_vec(r);        
-        while ~pass_flag
-            mFactor = normrnd(0,log10(sigma_vec(r)));
-            prop_val = init_val*10^mFactor;
-            pass_flag = prop_val <= ub_vec(r) && prop_val >= lb_vec(r);
-        end
-        param_array(1,r) = prop_val;
+    pass_flag = false;
+    while ~pass_flag
+        mu_vec = mu_fun(true_param_vec,param_sigma_vec);
+        sigma_vec = sigma_fun(true_param_vec,param_sigma_vec);
+        prop_param_vals = lognrnd(mu_vec,sigma_vec);
+        pass_flag = all(prop_param_vals<=ub_vec&prop_param_vals>=lb_vec);   
     end
-
+    param_array(1,:) = prop_param_vals;
+    
     % initialize
     params_current = param_array(1,:);
     prediction_current = fit_fun(params_current,time_exp_array);
-    logL_current = -mean(0.5*((fluo_exp_array(:) - prediction_current(:))/noise).^2);
+    logL_current = -sum(0.5*((fluo_exp_array(:) - prediction_current(:))/noise).^2);
     acc_rate_array(1,chain) = true;
     temperature_array(1) = true;
 
@@ -206,12 +210,23 @@ parfor chain = 1:n_chains
         old_param_vals = params_current(prop_param_indices);
 
         pass_flag = false;
+        iter = 1;
         while ~pass_flag
             % generate new prop vals
             m_factors = normrnd(0,jump_sigma,1,sample_batch_size);
             prop_param_vals = old_param_vals.*10.^m_factors;
             % check that vals are inside bounds
             pass_flag = all(prop_param_vals<=ub_vec(prop_param_indices)&prop_param_vals>=lb_vec(prop_param_indices));
+%             m_factors = normrnd(0,jump_sigma,1,sample_batch_size);
+%             mu_vec = mu_fun(old_param_vals,jump_sigma);
+%             sigma_vec = sigma_fun(old_param_vals,jump_sigma);
+%             prop_param_vals = lognrnd(mu_vec,sigma_vec);%old_param_vals.*10.^m_factors;
+%             % check that vals are inside bounds
+%             pass_flag = all(prop_param_vals<=ub_vec(prop_param_indices)&prop_param_vals>=lb_vec(prop_param_indices));
+%             iter = iter + 1;
+%             if iter > 100
+%                 error('asfa')
+%             end
         end
 
         %%%%%%%%%%%%%%%%%%%%%%%%
@@ -220,11 +235,11 @@ parfor chain = 1:n_chains
         params_prop = params_current;
         params_prop(prop_param_indices) = prop_param_vals;
         prediction_prop = fit_fun(params_prop,time_exp_array);
-        logL_prop = -mean(0.5*((fluo_exp_array(:) - prediction_prop(:))/noise).^2);
+        logL_prop = -sum(0.5*((fluo_exp_array(:) - prediction_prop(:))/noise).^2);
 
         % calculate likelhood diff
         deltaL = (logL_prop-logL_current) / .1;    
-        move_flag = exp(deltaL) > rand();
+        move_flag = exp(deltaL/temp_init) > rand();
 
         if move_flag        
             % load prediction into memory
@@ -254,148 +269,3 @@ end
 
 
 
-% % set optimization options
-% options = optimoptions('lsqcurvefit','MaxIterations',200);
-% 
-% % initialize structures to store results
-% rate_init_array_r1 = NaN(n_inference_runs,length(fit_indices_round1));
-% rate_fit_array_r1 = NaN(n_inference_runs,length(fit_indices_round1));
-% fluo_fit_array_r1 = NaN(size(fluo_exp_array,1),size(fluo_exp_array,2),n_inference_runs);
-% res_vec_r1 = NaN(1,n_inference_runs);
-% parfor n = 1:n_inference_runs
-%     % generate randomized starting values
-%     iter = 1;    
-%     rate_init_temp = NaN(1,numel(fit_indices_round1));
-%     for r = fit_indices_round1
-%         pass_flag = false;
-%         init_val = true_param_vec(r);        
-%         while ~pass_flag
-%             mFactor = normrnd(0,log10(sigma_vec(r)));
-%             prop_val = init_val*10^mFactor;
-%             pass_flag = prop_val <= ub_vec(r) && prop_val >= lb_vec(r);
-%         end
-%         rate_init_temp(iter) = prop_val;
-%         iter = iter + 1;
-%     end
-%     % perform fit
-%     tic
-%     [rate_vec_out, resnorm]= lsqcurvefit(fit_fun,rate_init_temp,time_exp_array,...
-%         fluo_exp_array,lb_vec(fit_indices_round1),ub_vec(fit_indices_round1),options);
-%     toc
-%     % store results    
-%     fluo_fit_array_r1(:,:,n) = fit_fun(rate_vec_out,time_exp_array);
-%     rate_fit_array_r1(n,:) = rate_vec_out;
-%     rate_init_array_r1(n,:) = rate_init_temp;
-%     res_vec_r1(n) = resnorm;
-% end
-% 
-% % Identify iteration with smallest residual and use those parameters to 
-% %%  fit additional unknowns
-% [min_res,mi_index] = min(res_vec_r1);
-% rate_vec_out = rate_fit_array_r1(mi_index,:);
-% % substitute given values into rate vector
-% fixed_indices_r2 = find(~ismember(1:numel(reaction_unit_index),fit_indices_round2));
-% rate_vec_fit_r2 = rate_vec;
-% iter = 1;
-% for r = fixed_indices_r2
-%     rr = reaction_unit_index(r);        
-%     rate_vec_fit_r2 = subs(rate_vec_fit_r2,rr,rate_vec_out(iter));    
-%     iter = iter + 1;
-% end
-% 
-% % convert rate vector into a matlabFunction
-% rate_vec_fun_r2 = matlabFunction(rate_vec_fit_r2);
-% % Round 2: Fig NCR curves
-% 
-% % specify conditions to include in fit
-% y0_cell_r2 = {y0_vec_cage, y0_vec_full};%{y0_vec_full, y0_vec_primary, y0_vec_cage, y0_vec_neg};
-% fluo_cell_raw_r2 = {f_ncr_cage, f_ncr_full};%{f_ncr_full, f_ncr_primary, f_ncr_cage, f_ncr_neg};
-% time_cell_raw_r2 = {t_ncr_cage, t_ncr};%{t_ncr_full, t_ncr_primary, t_ncr_cage, t_ncr_neg};
-% 
-% % define fitting function
-% fit_fun_r2 = @(rate_params,time_exp_array) ode_objfunction_v2(t_max,rate_params,rate_vec_fun_r2,...
-%     Q,y0_cell_r2,f_indices,time_exp_array);
-% 
-% % generate interpolated vectors for fitting
-% time_exp_array_r2 = repmat(time_exp',1,numel(y0_cell_r2));
-% 
-% fluo_exp_array_r2 = NaN(numel(time_exp),numel(y0_cell_r2));
-% for f = 1:numel(fluo_cell_raw)
-%     fluo_exp_array_r2(:,f) = interp1(time_cell_raw_r2{f},fluo_cell_raw_r2{f},time_exp) + normrnd(0,sim_noise,1,numel(time_exp));
-% end
-% 
-% 
-% %% initialize structures to store results
-% rate_init_array_r2 = NaN(n_inference_runs,length(fit_indices_round2));
-% rate_fit_array_r2 = NaN(n_inference_runs,length(fit_indices_round2));
-% fluo_fit_array_r2 = NaN(size(fluo_exp_array_r2,1),size(fluo_exp_array_r2,2),n_inference_runs);
-% res_vec_r2 = NaN(1,n_inference_runs);
-% parfor n = 1:n_inference_runs
-%     % generate randomized starting values
-%     iter = 1;    
-%     rate_init_temp = NaN(1,numel(fit_indices_round2));
-%     for r = fit_indices_round2
-%         pass_flag = false;
-%         init_val = true_param_vec(r);        
-%         while ~pass_flag
-%             mFactor = normrnd(0,log10(sigma_vec(r)));
-%             prop_val = init_val*10^mFactor;
-%             pass_flag = prop_val <= ub_vec(r) && prop_val >= lb_vec(r);
-%         end
-%         rate_init_temp(iter) = prop_val;
-%         iter = iter + 1;
-%     end
-%     % perform fit
-%     tic
-%     [rate_vec_out, resnorm]= lsqcurvefit(fit_fun_r2,rate_init_temp,time_exp_array,...
-%         fluo_exp_array_r2,lb_vec(fit_indices_round2),ub_vec(fit_indices_round2),options);
-%     toc
-%     % store results    
-%     fluo_fit_array_r2(:,:,n) = fit_fun_r2(rate_vec_out,time_exp_array);
-%     rate_fit_array_r2(n,:) = rate_vec_out;
-%     rate_init_array_r2(n,:) = rate_init_temp;
-%     res_vec_r2(n) = resnorm;
-% end
-% 
-% %% Evaluate fit
-% [~,mi_index2] = min(res_vec_r2);
-% best_fit_vec = NaN(1,numel(true_param_vec));
-% best_fit_vec(fit_indices_round1) = rate_fit_array_r1(mi_index,:);
-% best_fit_vec(fit_indices_round2) = rate_fit_array_r2(mi_index2);
-% 
-% best_fit_fluo_r1 = fit_fun(rate_fit_array_r1(mi_index,:),time_exp_array);
-% best_fit_fluo_r2 = fit_fun_r2(rate_fit_array_r2(mi_index2),time_exp_array);
-% 
-% % make fit figure
-% fit_fig = figure;
-% cmap1 = brewermap(9,'Set2');
-% hold on
-% p = [];
-% for f = 1:size(fluo_exp_array,2)
-%     scatter(time_exp(1:10:end),fluo_exp_array(1:10:end,f),5,'MarkerFaceColor',cmap1(f,:)/1.2,'MarkerEdgeAlpha',0,'MarkerFaceAlpha',0.1)
-%     p = [p plot(time_exp,best_fit_fluo_r1(:,f),'Color',cmap1(f,:),'LineWidth',1.5)];
-% end
-% for f = 1:size(fluo_exp_array_r2,2)
-%     scatter(time_exp(1:10:end),fluo_exp_array_r2(1:10:end,f),5,'MarkerFaceColor',cmap1(f+2,:)/1.2,'MarkerEdgeAlpha',0,'MarkerFaceAlpha',0.1)
-%     p = [p plot(time_exp,best_fit_fluo_r2(:,f),'Color',cmap1(f+2,:),'LineWidth',1.5)];
-% end
-% legend(p,'Primary Only','No Activator','Cage Only','NCR','Location','southeast')
-% ylim([0 210])
-% xlim([0 t_max])
-% xlabel('time (seconds)')
-% ylabel('signal (au)')
-% set(gca,'Fontsize',14)
-% 
-% saveas(fit_fig,[FigPath 'NCR_fit_plots.png'])
-% %%
-% param_fig = figure;
-% scatter(best_fit_vec,true_param_vec,'MarkerFaceColor',cmap1(3,:),'MarkerEdgeColor','black')
-% set(gca,'YScale','log')
-% set(gca,'XScale','log')
-% grid on
-% xlabel('inferred parameter value')
-% ylabel('true parameter value')
-% set(gca,'Fontsize',12)
-% ylim([1e-7 1e5])
-% xlim([1e-7 1e5])
-% saveas(param_fig,[FigPath 'NCR_param_plots.png'])

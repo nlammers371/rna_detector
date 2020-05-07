@@ -48,9 +48,9 @@ RNP2 = 0.8; % Cas13:gRNA2
 % vectors for substitutions
 init_sym_array =      {'A1'  'S' 'IA2' 'C13'       'G1'   'G2'};
 init_val_vec_cage =    [0    S0  IA20   RNP1+RNP2   RNP1  RNP2]; % cage only
-init_val_vec_full =    [A10  S0  IA20   RNP1+RNP2   RNP1  RNP2]; % primary only
-init_val_vec_primary = [A10  S0  0      RNP1+RNP2   RNP1  RNP2]; % primary only
-init_val_vec_neg =     [0    S0  0      RNP1+RNP2   RNP1  RNP2]; % no activator
+init_val_vec_full =    [10*A10  S0  IA20   RNP1+RNP2   RNP1  RNP2]; % primary only
+init_val_vec_primary = [10*A10  S0  0      RNP1+RNP2   RNP1  RNP2]; % primary only
+init_val_vec_neg =     [100*A10    S0  0      RNP1+RNP2   RNP1  RNP2]; % no activator
 
 % initialize concentration vector. Everything not explicitly assigned taken
 % to be zero
@@ -75,7 +75,7 @@ name_cell = {'NCR', 'Primary Only', 'Cage Only', 'No Activator'};
 %%% parameters
 
 % specify subset of parameters to fit
-fit_indices = 1:numel(reaction_parameter_index);
+fit_indices = [1:7 8 9];%numel(reaction_parameter_index);
 n_inference_runs = 20;
 sim_noise = 1e-2*S0;
 
@@ -156,7 +156,36 @@ end
 
 
 %% perform MCMC optimization 
+data = struct;
+data.ydata = fluo_exp_array;
+data.xdata = time_exp_array;
+% specify fit funtions
+modelfun = @(xdata,theta) ode_objfunction_v2(t_max,theta,rate_vec_fun,...
+                Q,y0_cell,f_indices,xdata);
+            
+ssfun = @(theta,data) sum(sum((data.ydata-modelfun(data.xdata,theta)).^2));
 
+% specify parameters and set initial values
+params = {};
+iter = 1;
+for p = fit_indices
+    if iter == 1
+        params = {{char(reaction_parameter_index(p)), rand()*true_param_vec(p), 0}};
+    else
+        params = {params{:} {char(reaction_parameter_index(p)), rand()*true_param_vec(p), 0}};    
+    end
+    iter = iter + 1;
+end    
+
+model.ssfun  = ssfun;
+model.sigma2 = 1e-6; 
+
+options.nsimu = 1000;
+options.updatesigma = 0;
+% options.qcov = tcov; % covariance from the initial fit
+
+[res,chain,s2chain] = mcmcrun(model,data,params,options);
+%%
 % define helper functions for sampling
 mu_fun = @(mu_in,s_factor) log(mu_in.^2 ./ sqrt(s_factor.^2.*mu_in.^2 + mu_in.^2));
 sigma_fun = @(mu_in,s_factor) sqrt(log(s_factor.^2.*mu_in.^2./mu_in.^2 + 1));
@@ -165,9 +194,9 @@ sigma_fun = @(mu_in,s_factor) sqrt(log(s_factor.^2.*mu_in.^2./mu_in.^2 + 1));
 temp_init = 1; % impacts rate of acceptance for jumps (will be tuned)
 sample_mem = 10; % sets # of previous samples to use for calc acceptance rate
 acceptance_target = 0.3; % target rate at which proposals are accepted
-sample_batch_size = 3; % number of parameters to sample for proposal step
+sample_batch_size = numel(fit_indices); % number of parameters to sample for proposal step
 jump_sigma = .05; % defined as fraction of param value
-n_steps = 1e3; % number of sampling steps
+n_steps = 2e2; % number of sampling steps
 n_chains = 1; % number of chains to run in parallel (kept at 1 for now)
 noise = 6; % experimental error--sets scale for fit likelihood calculations
 
@@ -185,16 +214,16 @@ for chain = 1:n_chains
     param_array(1,fixed_indices,chain) = true_param_vec(fixed_indices);
     pass_flag = false;
     while ~pass_flag
-        mu_vec = mu_fun(true_param_vec,param_sigma_vec);
-        sigma_vec = sigma_fun(true_param_vec,param_sigma_vec);
+        mu_vec = mu_fun(true_param_vec(fit_indices),param_sigma_vec(fit_indices));
+        sigma_vec = sigma_fun(true_param_vec(fit_indices),param_sigma_vec(fit_indices));
         prop_param_vals = lognrnd(mu_vec,sigma_vec);
-        pass_flag = all(prop_param_vals<=ub_vec&prop_param_vals>=lb_vec);   
+        pass_flag = all(prop_param_vals<=ub_vec(fit_indices)&prop_param_vals>=lb_vec(fit_indices));   
     end
-    param_array(1,:) = prop_param_vals;
+    param_array(1,fit_indices) = prop_param_vals;
     
     % initialize
     params_current = param_array(1,:);
-    prediction_current = fit_fun(params_current,time_exp_array);
+    prediction_current = fit_fun(params_current(fit_indices),time_exp_array);
     logL_current = -sum(0.5*((fluo_exp_array(:) - prediction_current(:))/noise).^2);
     acc_rate_array(1,chain) = true;
     temperature_array(1) = temp_init;
@@ -214,20 +243,20 @@ for chain = 1:n_chains
         iter = 1;
         while ~pass_flag
             % generate new prop vals
-            m_factors = normrnd(0,jump_sigma,1,sample_batch_size);
-            prop_param_vals = old_param_vals.*10.^m_factors;
-            % check that vals are inside bounds
-            pass_flag = all(prop_param_vals<=ub_vec(prop_param_indices)&prop_param_vals>=lb_vec(prop_param_indices));
 %             m_factors = normrnd(0,jump_sigma,1,sample_batch_size);
-%             mu_vec = mu_fun(old_param_vals,jump_sigma);
-%             sigma_vec = sigma_fun(old_param_vals,jump_sigma);
-%             prop_param_vals = lognrnd(mu_vec,sigma_vec);%old_param_vals.*10.^m_factors;
+%             prop_param_vals = old_param_vals.*10.^m_factors;
 %             % check that vals are inside bounds
 %             pass_flag = all(prop_param_vals<=ub_vec(prop_param_indices)&prop_param_vals>=lb_vec(prop_param_indices));
-%             iter = iter + 1;
-%             if iter > 100
-%                 error('asfa')
-%             end
+            m_factors = normrnd(0,jump_sigma,1,sample_batch_size);
+            mu_vec = mu_fun(old_param_vals,jump_sigma);
+            sigma_vec = sigma_fun(old_param_vals,jump_sigma);
+            prop_param_vals = lognrnd(mu_vec,sigma_vec);%old_param_vals.*10.^m_factors;
+            % check that vals are inside bounds
+            pass_flag = all(prop_param_vals<=ub_vec(prop_param_indices)&prop_param_vals>=lb_vec(prop_param_indices));
+            iter = iter + 1;
+            if iter > 100
+                error('asfa')
+            end
         end
 
         %%%%%%%%%%%%%%%%%%%%%%%%
@@ -235,7 +264,7 @@ for chain = 1:n_chains
         %%%%%%%%%%%%%%%%%%%%%%%%
         params_prop = params_current;
         params_prop(prop_param_indices) = prop_param_vals;
-        prediction_prop = fit_fun(params_prop,time_exp_array);
+        prediction_prop = fit_fun(params_prop(fit_indices),time_exp_array);
         logL_prop = -sum(0.5*((fluo_exp_array(:) - prediction_prop(:))/noise).^2);
 
         % calculate likelhood diff
