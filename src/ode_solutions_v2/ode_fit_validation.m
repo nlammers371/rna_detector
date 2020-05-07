@@ -269,11 +269,53 @@ best_fit_vec = NaN(1,numel(true_param_vec));
 best_fit_vec(fit_indices_round1) = rate_fit_array_r1(mi_index,:);
 best_fit_vec(fit_indices_round2) = rate_fit_array_r2(mi_index2);
 
+best_fit_vec_ste = NaN(1,numel(true_param_vec));
+best_fit_vec_ste(fit_indices_round1) = std(rate_fit_array_r1);
+best_fit_vec_ste(fit_indices_round2) = std(rate_fit_array_r2);
+
 best_fit_fluo_r1 = fit_fun(rate_fit_array_r1(mi_index,:),time_exp_array);
 best_fit_fluo_r2 = fit_fun_r2(rate_fit_array_r2(mi_index2),time_exp_array);
 
-% make fit figure
-fit_fig = figure;
+%=% make fit figure
+fit_fig1 = figure;
+cmap1 = brewermap(9,'Set2');
+hold on
+p = [];
+a = [];
+for f = 1:size(fluo_exp_array,2)
+    a = [a scatter(time_exp(1:10:end),fluo_exp_array(1:10:end,f),5,'MarkerFaceColor',cmap1(f,:),'MarkerEdgeAlpha',0,'MarkerFaceAlpha',0.7)];
+%     a = [a plot(time_exp,fluo_exp_array(:,f),'Color',cmap1(f,:),'LineWidth',1.5)];
+    p = [p plot(time_exp,best_fit_fluo_r1(:,f),'Color','black','LineWidth',1.5)];
+end
+legend([a p(1)],'Primary Only','No Activator','Model Fits','Location','southeast')
+ylim([0 210])
+xlim([0 t_max])
+xlabel('time (seconds)')
+ylabel('signal (au)')
+set(gca,'Fontsize',14)
+
+saveas(fit_fig1,[FigPath 'NCR_fit_plots_r1.png'])
+
+fit_fig2 = figure;
+cmap1 = brewermap(9,'Set2');
+hold on
+p = [];
+a = [];
+for f = 1:size(fluo_exp_array_r2,2)
+    a = [a scatter(time_exp(1:10:end),fluo_exp_array_r2(1:10:end,f),5,'MarkerFaceColor',cmap1(f+2,:),'MarkerEdgeAlpha',0,'MarkerFaceAlpha',0.7)];
+%     a = [a plot(time_exp,fluo_exp_array_r2(:,f),'Color',cmap1(f+2,:),'LineWidth',1.5)];
+    p = [p plot(time_exp,best_fit_fluo_r2(:,f),'Color','black','LineWidth',1.5)];
+end
+legend([a p(1)],'Cage Only','NCR','Model Fits','Location','southeast')
+ylim([0 210])
+xlim([0 t_max])
+xlabel('time (seconds)')
+ylabel('signal (au)')
+set(gca,'Fontsize',14)
+
+saveas(fit_fig2,[FigPath 'NCR_fit_plots_r2.png'])
+
+fit_fig_full = figure;
 cmap1 = brewermap(9,'Set2');
 hold on
 p = [];
@@ -292,15 +334,19 @@ xlabel('time (seconds)')
 ylabel('signal (au)')
 set(gca,'Fontsize',14)
 
-saveas(fit_fig,[FigPath 'NCR_fit_plots.png'])
+saveas(fit_fig_full,[FigPath 'NCR_fit_plots.png'])
 %%
 param_fig = figure;
-scatter(best_fit_vec,true_param_vec,'MarkerFaceColor',cmap1(3,:),'MarkerEdgeColor','black')
+hold on
+% e = errorbar(true_param_vec,best_fit_vec, best_fit_vec_ste,'o', 'Color','black');
+% e.CapSize = 0;
+scatter(true_param_vec,best_fit_vec,'MarkerFaceColor',cmap1(3,:),'MarkerEdgeColor','black')
+% scatter(best_fit_vec_med,true_param_vec,'MarkerFaceColor',cmap1(2,:),'MarkerEdgeColor','black')
 set(gca,'YScale','log')
 set(gca,'XScale','log')
 grid on
-xlabel('inferred parameter value')
-ylabel('true parameter value')
+ylabel('inferred parameter value')
+xlabel('true parameter value')
 set(gca,'Fontsize',12)
 ylim([1e-7 1e5])
 xlim([1e-7 1e5])
