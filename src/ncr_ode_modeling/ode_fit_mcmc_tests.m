@@ -292,11 +292,11 @@ end
 
 %%
 close all
-
+burnin = 3500;
 figure(2); clf
 mcmcplot(chain,[],results,'chainpanel');
 
-mcmc_sol = results.mean;
+mcmc_sol = mean(chain(burnin:end,:));
 mcmc_curves = modelfun(time_exp_array,mcmc_sol);
 
 figure;
