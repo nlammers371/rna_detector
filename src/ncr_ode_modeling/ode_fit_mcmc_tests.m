@@ -242,7 +242,7 @@ ssfun = @(theta,data) sum(sum((data.ydata-modelfun(data.xdata,theta)).^2)); % th
 method      = 'dram'; % adaptation method, 'mh', 'dr', 'am', or 'dram'
 % adaptint    = 100;    % how often to adapt the proposal
 
-nsimu       = 1000;   % number of simulations
+nsimu       = 5000;   % number of simulations
 model.ssfun  = ssfun;
 model.sigma2 = mse; 
 
@@ -263,7 +263,7 @@ options.burnintime = 500; % burn-in time
 
 % initialize nlse-fit parameter
 param_init_vec = NaN(size(true_param_vec));
-param_init_vec(fit_indices_init) = param_fit_array(best_fit_index,:);
+param_init_vec(fit_indices_init) = median(param_fit_array);
 
 for f = fixed_indices_init
     pass_flag = false;
