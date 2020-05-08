@@ -211,10 +211,10 @@ data.xdata = time_exp_array;
 %%%%%%%%%%%%%
 
 % substitute given values into rate vector
-fixed_indices = find(~ismember(1:numel(reaction_parameter_index),fit_indices));
+fixed_indices_init = find(~ismember(1:numel(reaction_parameter_index),fit));
 
 rate_vec_fit = rate_vec;
-for r = fixed_indices
+for r = fixed_indices_init
     rr = reaction_parameter_index(r);        
     rate_vec_fit = subs(rate_vec_fit_init,rr,eval(rr));    
 end
@@ -239,7 +239,7 @@ ssfun = @(theta,data) sum(sum((data.ydata-modelfun(data.xdata,theta)).^2)); % th
  
 % high-level simulation paramters 
 
-method      = 'dram'; % adaptation method, 'mh', 'dr', 'am', or 'dram'
+% method      = 'dram'; % adaptation method, 'mh', 'dr', 'am', or 'dram'
 % adaptint    = 100;    % how often to adapt the proposal
 
 nsimu       = 1000;   % number of simulations
@@ -247,16 +247,14 @@ model.ssfun  = ssfun;
 model.sigma2 = mse; 
 
 % set options 
-options = struct;
-options.method = method;
-options.updatesigma = 0;
+options.updatesigma = 1;
 options.nsimu       = nsimu;         % n:o of simulations
 options.printint    = 200; % how often to show info on acceptance ratios
 options.verbosity   = 0;  % how much to show output in Matlab window
 options.waitbar     = 1;  % show garphical waitbar
 options.updatesigma = 1;  % update error variance
 options.stats       = 1;  % save extra statistics in results
-options.burnintime = 500; % burn-in time
+
 %%%%%%%%%%%%%
 % generate parameter vec for fitting
 %%%%%%%%%%%%%
@@ -266,24 +264,17 @@ param_init_vec = NaN(size(true_param_vec));
 param_init_vec(fit_indices_init) = param_fit_array(best_fit_index,:);
 
 for f = fixed_indices_init
-    pass_flag = false;
-    init_val = true_param_vec(f);        
-    while ~pass_flag
-        mFactor = normrnd(0,log10(param_sigma_vec(f)));
-        prop_val = init_val*10^mFactor;
-        pass_flag = prop_val <= ub_vec(f) && prop_val >= lb_vec(f);
-    end
-    param_init_vec(f) = prop_val;
-end
-       
+    if ismember(p,param_init_vec
+    
+    
 % specify parameters and set initial values
 params = {};
 iter = 1;
 for p = fit_indices
     if iter == 1
-        params = {{char(reaction_parameter_index(p)), param_init_vec(p), lb_vec(p), ub_vec(p)}};
+        params = {{char(reaction_parameter_index(p)), rand()*true_param_vec(p), lb_vec(p), ub_vec(p)}};
     else
-        params = {params{:} {char(reaction_parameter_index(p)), param_init_vec(p), lb_vec(p), ub_vec(p)}};    
+        params = {params{:} {char(reaction_parameter_index(p)), rand()*true_param_vec(p), lb_vec(p), ub_vec(p)}};    
     end
     iter = iter + 1;
 end    
