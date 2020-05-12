@@ -45,17 +45,22 @@ project_suffix = '_v3';
 % Define basic reaction components
 
 % Generate list of relevant ractants
-atom_list = {'A1','G1','NG1','nC13','cC13','S','F'};
+atom_list = {'A1','G1','NG1','nC13','C13','S','F'};
 
 % Define specific interactions
-spec_compound_list = {'nC13:cC13', 'nC13:cC13:G1','G1:A1','nC13:cC13:G1::A1'}; % double colon denotes where split occurs during dissociation
+spec_compound_list = {'C13:G1','G1:A1','C13:G1::A1'}; % double colon denotes where split occurs during dissociation
 syms k rcga
-spec_on_rate_list = [0, k, k, rcga]; % association rates for these compounds
-syms rcg rga kd_cga rdeg
-spec_off_rate_list = [rdeg, rcg,rga,rcga*kd_cga]; % disassociation rates for these compounds
+spec_on_rate_list = [k, k, rcga]; % association rates for these compounds
+syms rcg rga kd_cga
+spec_off_rate_list = [rcg,rga,rcga*kd_cga]; % disassociation rates for these compounds
 %ka_cga = 1e9;
 syms b kc % initialize symbolic variables 
-cat_rates =[0, b*kc, 0, kc]; % b << 1 is backgrounds to activated Cas13 ratio
+cat_rates =[b*kc, 0, kc]; % b << 1 is backgrounds to activated Cas13 ratio
+
+syms kdeg
+unstable_atom_list = {'C13', 'C13:G1', 'C13:G1::A1', 'C13:G1::A1'};
+degredation_product = {{'nC13'}, {'nC13', 'G1'}, {'nC13', 'G1:A1'}, {'C13', 'G1:A1'}};
+deg_rates = {kdeg, kdeg, kdeg, rcga*kd_cga};
 
 % Specify substrate-product pairs
 substrate_list = {'S','G1'};
@@ -91,11 +96,11 @@ full_reactant_list = [atom_list spec_compound_list cat_compound_list]; % all rea
 full_compound_list = [spec_compound_list cat_compound_list]; % all compounds
 full_off_rate_list = [spec_off_rate_list cat_off_rates]; % off rates for each compounds
 full_cat_rate_list = [zeros(size(spec_off_rate_list)) cat_rate_list]; % catalytic rates for each compund
-full_on_rate_list = [spec_on_rate_list repelem({k},length(full_off_rate_list))]; % association rates
+full_on_rate_list = [spec_on_rate_list repelem({k},length(cat_off_rates))]; % association rates
 
 % get dims for stoichiometry matrix (Q)
 n_reactants = length(full_reactant_list);
-n_reactions = 2*length(full_compound_list) + length(cat_compound_list);
+n_reactions = 2*length(full_compound_list) + length(cat_compound_list) + length(unstable_atom_list);
 
 % initialize stoichiometry matrix and rate vector
 rate_vec = []; % symbolic list
@@ -103,7 +108,7 @@ reaction_list = cell(1,n_reactions); % string cell array
 Q = zeros(n_reactants,n_reactions);
 
 % loop through compounds and populate reaction arrays
-delim_list = {':','::',':::'};
+delim_list = {':','::',':::','::::'};
 rate_index = 1;
 for f = 1:length(full_compound_list)
     
@@ -165,5 +170,43 @@ for f = 1:length(full_compound_list)
     end
 end
 
+for f = 1:length(unstable_atom_list)
+    compound = unstable_atom_list{f};
+    product = degredation_product{f};
+    if length(product) == 1
+         % get indices 
+        compound_index = find(strcmp(full_reactant_list,{compound}));
+        product_ind = find(strcmp(full_reactant_list,product{1}));
+        %%%%%%%%%%%
+        % degredation reaction
+        Q(compound_index,rate_index) = -1;
+        Q(product_ind,rate_index) = 1;
+        % add reaction string
+        reaction_list{rate_index} = [compound ' -> ' product{1}];
+        % add reaction rate
+        rate_vec = [rate_vec deg_rates(f)];
+        % increment
+        rate_index = rate_index + 1;
+    elseif length(product) == 2
+             % get indices 
+        compound_index = find(strcmp(full_reactant_list,{compound}));
+        product_ind1 = find(strcmp(full_reactant_list,product{1}));
+        product_ind2 = find(strcmp(full_reactant_list,product{2}));
+        product_indices = [product_ind1 product_ind2];
+        %%%%%%%%%%%
+        % degredation reaction
+        Q(compound_index,rate_index) = -1;
+        Q(product_indices,rate_index) = 1;
+        % add reaction string
+        reaction_list{rate_index} = [compound ' -> ' product{1} ' + ' product{2}];
+        % add reaction rate
+        rate_vec = [rate_vec deg_rates(f)];
+        % increment
+        rate_index = rate_index + 1;
+    end
+    
+end
+
+reaction_list'
 % save workspace
 save([DataPath 'primary_only' project_suffix '.mat'])

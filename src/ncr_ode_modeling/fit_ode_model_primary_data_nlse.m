@@ -42,7 +42,7 @@ reaction_parameter_index
 
 exp_data = readtable('./data/042520 20nM wobble+mismatch raw data_full_by_cond_no extra_rows.csv');
 
-num_replicates = 3;
+num_replicates = 1;
 
 t_max = max(exp_data.time_s); % duration of time to solve for
 A10 = 0.02; % initial target RNA concentration (nM)
@@ -74,9 +74,11 @@ y0_cell = {y0_vec_primary, y0_vec_neg}; % all conditions in this cell will be in
 %%%%%%%%%%%%%%%%%
 %%% Specify which rate parameters to fit and specify values for "given"
 %%% parameters
+% param_order = reaction_parameter_index
 % return
 % specify subset of parameters to fit
-fit_indices = [1,2,3,4,5,6,7,8];
+% param_order = [ b, k, kc, kd_cga, kdeg, rcg, rcga, rga, rns]
+fit_indices = [1,2,3,4,5,6,7,8,9];
 n_inference_runs = 20;
 sim_noise = 1e-2*S0; % gaussian noise to add to simulated data
 
@@ -87,8 +89,10 @@ kc = 200; % Cas13 catalytic rate
 rcg = 1e-2; % off rate for Cas13:gRNA
 rga = 1e-2; % off rate for gRNA:Activator
 kd_cga = 1e-9; %dissassociation constant for cas13 with guide for activator
-rcga = 1e-3; %association rate for cas113 with guide for activator
+rcga = 6.9116e-06; %association rate for cas113 with guide for activator
 rns = 1e3; % off rate for all nonspecific interactions
+kdeg = 1e-2; %degredation rate of cas13
+% kassem = 0; %undegredation rate of cas13
 
 % get vector of guessed param values
 true_param_vec = eval(reaction_parameter_index);
@@ -97,7 +101,8 @@ true_param_vec = eval(reaction_parameter_index);
 
 % specify degree of uncertainty for each param value (need to play with
 % this)
-sigma_vec = [1e3, 1e1, 1e1, 1e1, 1e1, 1e5, 1e1, 1e1];
+% param_order = [ b, k, kc, kd_cga, kdeg, rcg, rcga, rga, rns]
+sigma_vec = [1e3, 1e1, 1e2, 1e1, 1e5, 1e1, 1e2, 1e1,1e1];
 
 %%%%%%%%%%% Generate "experimental data" using true param values %%%%%%%%%%
 
@@ -135,21 +140,21 @@ time_cell_raw = cell(1,length(y0_cell)*num_replicates);
 
 %adding primary only data
 fluo_cell_raw{1}=exp_data.x1_20nM_0_05nM_0_02_20____-exp_data.x1_20nM_0_05nM_0_02_20____(1);
-fluo_cell_raw{2}=exp_data.x1_20nM_0_05nM_0_02_20_____1-exp_data.x1_20nM_0_05nM_0_02_20_____1(1);
-fluo_cell_raw{3}=exp_data.x1_20nM_0_05nM_0_02_20_____2-exp_data.x1_20nM_0_05nM_0_02_20_____2(1);
+% fluo_cell_raw{2}=exp_data.x1_20nM_0_05nM_0_02_20_____1-exp_data.x1_20nM_0_05nM_0_02_20_____1(1);
+% fluo_cell_raw{3}=exp_data.x1_20nM_0_05nM_0_02_20_____2-exp_data.x1_20nM_0_05nM_0_02_20_____2(1);
 
 %adding neg data
-fluo_cell_raw{4}=exp_data.x1_20nM_0_05nM_0_0_20____-exp_data.x1_20nM_0_05nM_0_0_20____(1);
-fluo_cell_raw{5}=exp_data.x1_20nM_0_05nM_0_0_20_____1-exp_data.x1_20nM_0_05nM_0_0_20_____1(1);
-fluo_cell_raw{6}=exp_data.x1_20nM_0_05nM_0_0_20_____2-exp_data.x1_20nM_0_05nM_0_0_20_____2(1);
+fluo_cell_raw{2}=exp_data.x1_20nM_0_05nM_0_0_20____-exp_data.x1_20nM_0_05nM_0_0_20____(1);
+% fluo_cell_raw{5}=exp_data.x1_20nM_0_05nM_0_0_20_____1-exp_data.x1_20nM_0_05nM_0_0_20_____1(1);
+% fluo_cell_raw{6}=exp_data.x1_20nM_0_05nM_0_0_20_____2-exp_data.x1_20nM_0_05nM_0_0_20_____2(1);
 
 %adding times
 time_cell_raw{1}=exp_data.time_s;
 time_cell_raw{2}=exp_data.time_s;
-time_cell_raw{3}=exp_data.time_s;
-time_cell_raw{4}=exp_data.time_s;
-time_cell_raw{5}=exp_data.time_s;
-time_cell_raw{6}=exp_data.time_s;
+% time_cell_raw{3}=exp_data.time_s;
+% time_cell_raw{4}=exp_data.time_s;
+% time_cell_raw{5}=exp_data.time_s;
+% time_cell_raw{6}=exp_data.time_s;
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

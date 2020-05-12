@@ -121,3 +121,81 @@ rcg =  0.0017432; % off rate for Cas13:gRNA
 rcga = 0.00058159; %on rate for cas13:guide and activatior      
 rga =  0.010552; % off rate for gRNA:Activator
 rns = 13145; % off rate for all nonspecific interactions
+
+Primary_only_high_fluorescence_multiplier_kdPegged_with_degredation
+b = 1.9977e-05
+k = 0.017882
+kc = 280.41
+kd_cga = 5.9356e-09
+rcg = 0.061563
+rcga = 0.0020157
+rdeg = 0.003685
+rga = 0.19202
+rns = 2131.5
+
+primary_only_degredation3:
+b = 1.2551e-05
+k = 0.0076655
+kc = 59.512 
+kd_cga = 7.5186e-10
+rcg = 0.011122
+rcga = 0.0007717
+rdeg = 0.060955
+rga = 0.055899
+rns = 156.21
+
+primary_only_degredation4
+b = 3.0097e-06
+k = 0.0026904
+kc = 3214.9
+kd_cga = 1.1254e-08
+rcg = 0.00092501
+rcga = 0.00013689
+rdeg = 0.47105
+rga = 0.19394
+rns = 779.55
+
+primary_only_degredation5
+b = 5.89e-06
+k = 0.00284
+kc = 533.56
+kd_cga = 1.4507e-08
+kdeg = 0
+rcg = 0.012761
+rcga = 0.00044048
+rga = 0.027216
+rns = 202.47
+
+primary_only_degredation5.5
+b = 3.5117e-05
+k = 0.0093698
+kc = 32.841
+kd_cga = 2.0082e-09
+kdeg = 0.001868
+rcg = 0.0198
+rcga = 0.00056595
+rga = 0.048332
+rns = 115.22
+
+primary_only_degredation6
+b = 864.9370e-009
+k = 43.8918e-003
+kc = 11.2071e+003
+kd_cga = 17.1772e-009
+kdeg = 220.4640e-006
+rcg = 8.4407e-003
+rcga = 0.00056595
+rga = 194.3304e-003
+rns = 6.4795e+003
+
+primary_only_degredation7
+b = 261.8601e-009
+k = 24.5913e-003
+kc = 3.7579e+003
+kd_cga = 12.3708e-009
+kdeg = 216.6263e-006
+rcg = 2.7629e-003
+rcga = 8.4089e-006
+rga = 105.7083e-003
+rns = 384.5869e+000
+
