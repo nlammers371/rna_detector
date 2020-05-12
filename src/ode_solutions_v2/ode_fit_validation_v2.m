@@ -36,9 +36,9 @@ reaction_parameter_index = unique(reaction_units);
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%% set key parameters %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %
-t_max = 3600; % duration of time to solve for (need to change this to calculate dynamically)
+t_max = 2000; % duration of time to solve for (need to change this to calculate dynamically)
 t_res = 0.1;
-A10 = 0.2; % concentration of target RNA
+A10 = 0.5; % concentration of target RNA
 IA20 = 20; % caged secondary activator
 S0 = 200; % reporter substrate
 RNP1 = 20; % Cas13:gRNA1
@@ -82,7 +82,7 @@ sim_noise = 1e-2*S0;
 % define "true" rates to fit
 b = 1e-6; % Cas13 1/SNR
 k = 0.025; % association rate (s^-1 nM^-1)
-kc = 600; % Cas13 catalytic rate
+kc = 100; % Cas13 catalytic rate
 kd_cga = 1e-8;
 rcg = 5e-3; % off rate for Cas13:gRNA
 rcga = 1e-5; % off rate for gRNA:Activator
@@ -178,7 +178,7 @@ temperature_array = NaN(n_steps,n_chains); % keep track of temp over time
 deltaL_array = NaN(n_steps,n_chains);
 acc_rate_array = NaN(n_steps,n_chains); % keep track of acceptance rate
 
-chain = 1;
+f = waitbar(0,'generating mcmc samples...');
 
 for chain = 1:n_chains
     % select starting values
@@ -201,8 +201,8 @@ for chain = 1:n_chains
 
     % iterate through sampling steps
     for step = 2:n_steps
-
-        tic                   
+        waitbar(step/n_steps,f)
+%         tic                   
         %%%%%%%%%%%%%%%%%%%%%%%%
         % propose new move
         %%%%%%%%%%%%%%%%%%%%%%%%
@@ -254,7 +254,7 @@ for chain = 1:n_chains
         logL_array(step,chain) = logL_current;
         temperature_array(step,chain) = temp_init;
         acc_rate_array(step,chain) = move_flag;
-        toc
+%         toc
     end
 end   
 

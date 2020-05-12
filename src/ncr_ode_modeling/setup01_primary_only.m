@@ -103,20 +103,22 @@ reaction_list = cell(1,n_reactions); % string cell array
 Q = zeros(n_reactants,n_reactions);
 
 % loop through compounds and populate reaction arrays
-delim_list = {':','::',':::'};
+delim_list = {':','::',':::','::::'};
 rate_index = 1;
 for f = 1:length(full_compound_list)
     
     %%%%%%%%%%%
-    % determine reactants and obtain relevant Q indices    
-    
+    % determine reactants and obtain relevant Q indices        
     compound = full_compound_list{f};
+    
     % split reaction
     fnd1 = strfind(compound,':');
     fnd2 = strfind(compound,'::');
     fnd3 = strfind(compound,':::');
+    fnd4 = strfind(compound,'::::');
     delim_ind = find([any(horzcat(fnd1(:))) any(horzcat(fnd2(:))) any(horzcat(fnd3(:)))],1,'last');
     reactants = strsplit(compound,delim_list{delim_ind});
+    
     % get indices 
     compound_index = find(strcmp(full_reactant_list,{compound}));
     reactant_ind1 = find(strcmp(full_reactant_list,reactants{1}));

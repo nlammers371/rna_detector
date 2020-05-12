@@ -6,6 +6,9 @@ addpath('../utilities')
 DataPath = '../../out/ncr_ode_modeling/';
 mkdir(DataPath)
 
+% add specific suffix to indicate version
+project_suffix = '_v3';
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % Modelling approach:
     %(1) Model only "on-pathway" ractions: those between targeted ligans/
@@ -46,7 +49,11 @@ atom_list = {'A1','G1','NG1','C13','S','F'};
 
 % Define specific interactions
 spec_compound_list = {'C13:G1','G1:A1','C13:G1::A1'}; % double colon denotes where split occurs during dissociation
-spec_off_rate_list = sym({'rcg','rga','rga'}); % disassociation rates for these compounds
+syms k rcga
+spec_on_rate_list = [k, k, rcga]; % association rates for these compounds
+syms rcg rga kd_cga
+spec_off_rate_list = [rcg,rga,rcga*kd_cga]; % disassociation rates for these compounds
+%ka_cga = 1e9;
 syms b kc % initialize symbolic variables 
 cat_rates =[b*kc, 0, kc]; % b << 1 is backgrounds to activated Cas13 ratio
 
@@ -65,7 +72,8 @@ cat_product_list = {}; % track products that result from catalysis in each case
 cat_rate_list = [];
 for c = cat_indices 
     catalyst = spec_compound_list{c};
-    n_colons = contains(catalyst,'::') + 2;
+    fnd = strfind(catalyst,'::');
+    n_colons = any(horzcat(fnd(:))) + 2;
     for s = 1:numel(substrate_list)
         substrate = substrate_list{s};
         cat_compound_list = [cat_compound_list {[catalyst repelem(':',n_colons) substrate]}];
@@ -73,38 +81,44 @@ for c = cat_indices
         cat_rate_list = [cat_rate_list cat_rates(c)];
     end
 end
-cat_off_rates = sym(repelem({'rns'},length(cat_compound_list))); % assuming all nonspecific reacti
+cat_off_rates = sym(repelem({'rns'},length(cat_compound_list))); % assuming all nonspecific reaction have same off rate
 
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%%% (3) generate stoichiometry matrix and rate vector
+
+%%% generate stoichiometry matrix and rate vector
 
 % concatenate reactant lists
-full_reactant_list = [atom_list spec_compound_list cat_compound_list];
-full_compound_list = [spec_compound_list cat_compound_list];
-full_off_rate_list = [spec_off_rate_list cat_off_rates];
-full_cat_rate_list = [zeros(size(spec_off_rate_list)) cat_rate_list];
-full_on_rate_list = sym(repelem({'k'},length(full_off_rate_list)));
+full_reactant_list = [atom_list spec_compound_list cat_compound_list]; % all reaction elements
+full_compound_list = [spec_compound_list cat_compound_list]; % all compounds
+full_off_rate_list = [spec_off_rate_list cat_off_rates]; % off rates for each compounds
+full_cat_rate_list = [zeros(size(spec_off_rate_list)) cat_rate_list]; % catalytic rates for each compund
+full_on_rate_list = [spec_on_rate_list repelem({k},length(full_off_rate_list))]; % association rates
 
-%% get dims for stoichiometry matrix (Q)
+% get dims for stoichiometry matrix (Q)
 n_reactants = length(full_reactant_list);
 n_reactions = 2*length(full_compound_list) + length(cat_compound_list);
 
 % initialize stoichiometry matrix and rate vector
-rate_vec = [];
-reaction_list = {};
+rate_vec = []; % symbolic list
+reaction_list = cell(1,n_reactions); % string cell array
 Q = zeros(n_reactants,n_reactions);
 
 % loop through compounds and populate reaction arrays
-delim_list = {':','::',':::'};
+delim_list = {':','::',':::','::::'};
 rate_index = 1;
 for f = 1:length(full_compound_list)
-    %%%%%%%%%%%
-    % determine reactants and obtain relevant Q indices
     
+    %%%%%%%%%%%
+    % determine reactants and obtain relevant Q indices        
     compound = full_compound_list{f};
+    
     % split reaction
-    delim_ind = find([contains(compound,':') contains(compound,'::') contains(compound,':::')],1,'last');
+    fnd1 = strfind(compound,':');
+    fnd2 = strfind(compound,'::');
+    fnd3 = strfind(compound,':::');
+    fnd4 = strfind(compound,'::::');
+    delim_ind = find([any(horzcat(fnd1(:))) any(horzcat(fnd2(:))) any(horzcat(fnd3(:)))],1,'last');
     reactants = strsplit(compound,delim_list{delim_ind});
+    
     % get indices 
     compound_index = find(strcmp(full_reactant_list,{compound}));
     reactant_ind1 = find(strcmp(full_reactant_list,reactants{1}));
@@ -154,4 +168,4 @@ for f = 1:length(full_compound_list)
 end
 
 % save workspace
-save([DataPath 'ncr_basic.mat'])
+save([DataPath 'primary_only' project_suffix '.mat'])

@@ -141,7 +141,12 @@ for f = 1:numel(fluo_cell_raw)
     fluo_exp_array(:,f) = interp1(time_cell_raw{f},fluo_cell_raw{f},time_exp) + normrnd(0,sim_noise,1,numel(time_exp));
 end
 
-%% use nlse to obtain point estimates for non-NCR parameters
+%% furst run MCMC on non-NCR parameters top obtain priors
+
+% generate data structure for mcmc algorithm to use
+data_init = struct;
+data_init.ydata = fluo_exp_array(:,non_ncr_indices);
+data_init.xdata = time_exp_array(:,non_ncr_indices);
 
 % substitute given values into rate vector
 fixed_indices_init = find(ismember(1:numel(reaction_parameter_index),ncr_param_indices));
@@ -156,18 +161,14 @@ end
 % convert rate vector into a matlabFunction
 rate_vec_fun_init = matlabFunction(rate_vec_fit_init);
 
-% define initial fitting function 
-fit_fun_init = @(rate_params,time_exp_array) ode_objfunction_v2(t_max,rate_params,rate_vec_fun_init,...
-    Q,y0_cell(non_ncr_indices),f_indices,time_exp_array(:,non_ncr_indices));
-
+modelfun = @(xdata,theta) ode_objfunction_v2(t_max,theta,rate_vec_fun_init,...
+                Q,y0_cell(non_ncr_indices),f_indices,xdata);
+            
+ssfun = @(theta,data) sum(sum((data.ydata -modelfun(data.xdata,theta)).^2)); % this defines objective function to minimize
 % specfiy fitting options 
-options = optimoptions('lsqcurvefit','Display','Off','MaxIterations',200);
+% options = optimoptions('lsqcurvefit','Display','Off','MaxIterations',200);
 
-% initialize structures to store results
-param_init_array = NaN(n_nlse_runs,length(fit_indices_init)); % store initial values used
-param_fit_array = NaN(n_nlse_runs,length(fit_indices_init)); % store parameters
-fluo_fit_array = NaN(size(fluo_exp_array(:,non_ncr_indices),1),size(fluo_exp_array(:,non_ncr_indices),2),n_nlse_runs); % store fluo curves
-res_vec = NaN(1,n_nlse_runs); % store fit residuals
+mcmc_init_struct = struct; 
 
 parfor n = 1:n_nlse_runs
     % generate randomized starting values
@@ -184,27 +185,59 @@ parfor n = 1:n_nlse_runs
         rate_init_temp(iter) = prop_val;
         iter = iter + 1;
     end
-    % perform fit
-    tic
-    [rate_vec_out, resnorm]= lsqcurvefit(fit_fun_init,rate_init_temp,time_exp_array,...
-        fluo_exp_array(:,non_ncr_indices),lb_vec(fit_indices_init),ub_vec(fit_indices_init),options);
-    toc
-    % store results    
-    fluo_fit_array(:,:,n) = fit_fun_init(rate_vec_out,time_exp_array);
-    param_fit_array(n,:) = rate_vec_out;
-    param_init_array(n,:) = rate_init_temp;
-    res_vec(n) = resnorm;
+    
+    params = {};
+    iter = 1;
+    for p = 1:numel(fit_indices_init)
+        if iter == 1
+            params = {{char(reaction_parameter_index(fit_indices_init(p))), rate_init_temp(p), lb_vec(p), ub_vec(p)}};
+        else
+            params = {params{:} {char(reaction_parameter_index(fit_indices_init(p))), rate_init_temp(p), lb_vec(p), ub_vec(p)}};    
+        end
+        iter = iter + 1;
+    end    
+    
+    method      = 'dram'; % adaptation method, 'mh', 'dr', 'am', or 'dram'
+% adaptint    = 100;    % how often to adapt the proposal
+
+    nsimu       = 500;   % number of simulations
+    model = struct;
+    model.ssfun  = ssfun;
+    model.sigma2 = 1; 
+
+    % set options 
+    options = struct;
+    options.method = method;
+    options.updatesigma = 0;
+    options.nsimu       = nsimu;         % n:o of simulations    
+    options.verbosity   = 0;  % how much to show output in Matlab window
+    options.waitbar     = 0;  % show garphical waitbar
+    options.updatesigma = 1;  % update error variance
+    options.stats       = 1;  % save extra statistics in results    
+    
+    [mcmc_init_struct(n).results,mcmc_init_struct(n).chain,mcmc_init_struct(n).s2chain] = mcmcrun(model,data_init,params,options);
+    
+%     % perform fit
+%     tic
+%     [rate_vec_out, resnorm]= lsqcurvefit(fit_fun_init,rate_init_temp,time_exp_array,...
+%         fluo_exp_array(:,non_ncr_indices),lb_vec(fit_indices_init),ub_vec(fit_indices_init),options);
+%     toc
+%     % store results    
+%     fluo_fit_array(:,:,n) = fit_fun_init(rate_vec_out,time_exp_array);
+%     param_fit_array(n,:) = rate_vec_out;
+%     param_init_array(n,:) = rate_init_temp;
+%     res_vec(n) = resnorm;
 end
 
 
-[min_res,best_fit_index] = min(res_vec);
+% [min_res,best_fit_index] = min(res_vec);
+%% Experiment with imposing priors 
+s2_mat = [mcmc_init_struct.s2chain];
+s2_vec = mean(s2_mat(end-100:end,:));
+[min_s2,min_index] = min(s2_vec)
 
 %% perform MCMC optimization 
 
-% generate data structure for mcmc algorithm to use
-data = struct;
-data.ydata = fluo_exp_array;
-data.xdata = time_exp_array;
 
 %%%%%%%%%%%%%
 % Define helpfer function and related vectors
@@ -288,7 +321,7 @@ for p = fit_indices
     iter = iter + 1;
 end    
 
-[results,chain,s2chain] = mcmcrun(model,data,params,options);
+[results,chain,s2chain] = mcmcrun(model,data_init,params,options);
 
 %%
 close all
