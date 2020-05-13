@@ -38,11 +38,16 @@ atom_list = {'C13','G1','G2','A1','A2','IA2','I','S','F','N'};
 % Define specific interactions
 spec_compound_list = {'C13:G1','C13:G2','G1:A1','G2:A2','C13:G1::A1','C13:G2::A2','I:A2'};
 syms k rcga
-spec_on_rate_list = [k, k, k, k, rcga, k]; % association rates for these compounds
+spec_on_rate_list = [k, k, k, k, rcga, rcga, k]; % association rates for these compounds
 syms rcg rga kd_cga ria
 spec_off_rate_list = [rcg,rcg,rga,rga,rcga*kd_cga, rcga*kd_cga, ria]; % disassociation rates for these compounds
 syms b kc
 cat_rates =[b*kc, b*kc, 0 ,0, kc, kc, 0];
+
+syms kdeg
+unstable_atom_list = {'C13', 'C13:G1', 'C13:G1::A1', 'C13:G1::A1', 'C13:G2', 'C13:G2::A2', 'C13:G2::A2'};
+degredation_product = {{'nC13'}, {'nC13', 'G1'}, {'nC13', 'G1:A1'}, {'C13', 'G1:A1'}, {'nC13', 'G2'}, {'nC13', 'G2:A2'}, {'C13', 'G2:A2'}};
+deg_rates = {kdeg, kdeg, kdeg, rcga*kd_cga, kdeg, kdeg, rcga*kd_cga};
 
 % Specify substrate-product pairs
 substrate_list = {'S','G1','G2','IA2'};
@@ -150,5 +155,43 @@ for f = 1:length(full_compound_list)
     end
 end
 
+for f = 1:length(unstable_atom_list)
+    compound = unstable_atom_list{f};
+    product = degredation_product{f};
+    if length(product) == 1
+         % get indices 
+        compound_index = find(strcmp(full_reactant_list,{compound}));
+        product_ind = find(strcmp(full_reactant_list,product{1}));
+        %%%%%%%%%%%
+        % degredation reaction
+        Q(compound_index,rate_index) = -1;
+        Q(product_ind,rate_index) = 1;
+        % add reaction string
+        reaction_list{rate_index} = [compound ' -> ' product{1}];
+        % add reaction rate
+        rate_vec = [rate_vec deg_rates(f)];
+        % increment
+        rate_index = rate_index + 1;
+    elseif length(product) == 2
+             % get indices 
+        compound_index = find(strcmp(full_reactant_list,{compound}));
+        product_ind1 = find(strcmp(full_reactant_list,product{1}));
+        product_ind2 = find(strcmp(full_reactant_list,product{2}));
+        product_indices = [product_ind1 product_ind2];
+        %%%%%%%%%%%
+        % degredation reaction
+        Q(compound_index,rate_index) = -1;
+        Q(product_indices,rate_index) = 1;
+        % add reaction string
+        reaction_list{rate_index} = [compound ' -> ' product{1} ' + ' product{2}];
+        % add reaction rate
+        rate_vec = [rate_vec deg_rates(f)];
+        % increment
+        rate_index = rate_index + 1;
+    end
+    
+end
+
+reaction_list'
 % save workspace
 save([DataPath 'ncr_basic.mat'])
