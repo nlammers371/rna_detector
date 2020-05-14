@@ -50,27 +50,32 @@ A10 = 0.02; % initial target RNA concentration (nM)
 S0 = 200; % reporter concentration
 %S0 = 3500; % reporter concentration
 RNP1 = 20; 
+RNP2 = 0.05;
+IA2 = 20;
 fluorescence_multiplier = 8000;
 
 
 %%%% specify initial reactant concentrations 
 % vectors for substitutions
-init_sym_array =     {'A1' 'S' 'C13' 'G1'};
-init_val_vec_primary =   [A10  S0  RNP1 RNP1]; % primary only
-init_val_vec_neg =    [0  S0  RNP1 RNP1]; % no activator
+init_sym_array =     {'A1' 'S' 'C13' 'G1' 'G2' 'IA2'};
+init_val_vec_primary =   [A10  S0  RNP1 RNP1 0 0]; % primary only
+init_val_vec_neg =    [0  S0  RNP1 RNP1 0 0]; % no activator
+init_val_vec_cage =    [0  S0  RNP1 RNP1 RNP2 0]; % no activator
 
 % initialize concentration vector. Everything not explicitly assigned taken
 % to be zero
 y0_vec_primary = zeros(size(full_reactant_list));
 y0_vec_neg = zeros(size(full_reactant_list));
+y0_vec_cage = zeros(size(full_reactant_list));
 for i = 1:numel(init_sym_array)
     species = init_sym_array{i};
     spec_indices = find(strcmp(full_reactant_list,species));      
     y0_vec_primary(spec_indices) = init_val_vec_primary(i);    
     y0_vec_neg(spec_indices) = init_val_vec_neg(i);
+    y0_vec_cage(spec_indices) = init_val_vec_cage(i);
 end
 
-y0_cell = {y0_vec_primary, y0_vec_neg}; % all conditions in this cell will be included in fit routine
+y0_cell = {y0_vec_primary, y0_vec_neg, y0_vec_cage}; % all conditions in this cell will be included in fit routine
 
 %%%%%%%%%%%%%%%%%
 %%% Specify which rate parameters to fit and specify values for "given"
@@ -103,7 +108,7 @@ true_param_vec = eval(reaction_parameter_index);
 % specify degree of uncertainty for each param value (need to play with
 % this)
 % param_order = [ b, k, kc, kd_cga, kdeg, rcg, rcga, rga,ria, rns]
-sigma_vec = [1e3, 1e1, 1e2, 1e1, 1e5, 1e1, 1e2, 1e1, 1,1e1];
+sigma_vec = [1e5, 1, 1, 1, 1, 1, 1, 1, 1e5,1];
 
 %%%%%%%%%%% Generate "experimental data" using true param values %%%%%%%%%%
 
@@ -149,10 +154,13 @@ fluo_cell_raw{2}=exp_data.x1_20nM_0_05nM_0_0_20____-exp_data.x1_20nM_0_05nM_0_0_
 % fluo_cell_raw{5}=exp_data.x1_20nM_0_05nM_0_0_20_____1-exp_data.x1_20nM_0_05nM_0_0_20_____1(1);
 % fluo_cell_raw{6}=exp_data.x1_20nM_0_05nM_0_0_20_____2-exp_data.x1_20nM_0_05nM_0_0_20_____2(1);
 
+% adding cage data
+fluo_cell_raw{3}=exp_data.x1_20nM_0_05nM_0_0_20_NCR061-exp_data.x1_20nM_0_05nM_0_0_20_NCR061(1);
+
 %adding times
 time_cell_raw{1}=exp_data.time_s;
 time_cell_raw{2}=exp_data.time_s;
-% time_cell_raw{3}=exp_data.time_s;
+time_cell_raw{3}=exp_data.time_s;
 % time_cell_raw{4}=exp_data.time_s;
 % time_cell_raw{5}=exp_data.time_s;
 % time_cell_raw{6}=exp_data.time_s;

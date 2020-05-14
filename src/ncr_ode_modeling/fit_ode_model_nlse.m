@@ -5,11 +5,11 @@ close all
 
 % basic path info
 addpath('../utilities')
-DataPath = '../../out/ode_studies_v2/';
+DataPath = '../../out/ncr_ode_modeling/';
 mkdir(DataPath)
 
 % specify project to load
-project = 'ncr_basic';
+project = 'NCR_v1';
 
 % make figure path
 FigPath = ['../../fig/ode_studies_v2/' project '/' ];
