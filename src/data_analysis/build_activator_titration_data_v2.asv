@@ -1,0 +1,140 @@
+% script to read in tecan data, group columns, and plot
+clear
+close all
+addpath('../utilities')
+% set path to data
+DataFolder = 'C:\Users\nlamm\Dropbox (Personal)\rna_detection\np_data\';
+
+% DataName = '050720_NCR018.xlsx';
+% SheetName = 'NCR018';
+DataName = '05142020_NCRData_37C';
+
+DataPath = [DataFolder DataName '.xlsx'];
+
+% make path for cleaned figure data
+WriteRoot = '../../out/data_analysis/';
+
+% get sheet info
+[~,SheetNames]=xlsfinfo(DataPath);
+SheetIndex = find(ismember(SheetNames,'DataSheet'));
+MapIndex = find(contains(SheetNames, 'PlateMap'));
+
+% read sheet
+[~,~,SheetCell] = xlsread(DataPath,SheetIndex);
+
+% get index of data header row
+HeaderRowIndex = find(strcmp(SheetCell(:,1),{'Cycle Nr.'}));
+LastRowIndex = find(~cellfun(@isempty,SheetCell(:,8)),1,'last')-4;
+LastColIndex = find(~cellfun(@isempty,SheetCell(HeaderRowIndex,:)),1,'last');
+
+% generate trucnated sheet
+ExpCell = SheetCell(HeaderRowIndex:LastRowIndex,1:LastColIndex);
+HeaderRow = ExpCell(1,:);
+%%
+%%%%%%%%%%%%%%
+% Group columns based on position within 384 well plate
+%%%%%%%%%%%%%%
+col_num_vec = [];
+row_num_vec = [];
+row_string_cell = {};
+for e = 4:length(HeaderRow)
+    string = HeaderRow{e};   
+    row_string_cell = [row_string_cell {string(1)}];
+end
+
+row_string_index = unique(row_string_cell);
+for e = 4:length(HeaderRow)
+    string = HeaderRow{e};
+    row_ind = find(strcmp(string(1),row_string_index));
+    col_num_vec = [col_num_vec str2double(string(2:end))];
+    row_num_vec = [row_num_vec row_ind];    
+end
+
+row_vec_coarse = round(row_num_vec/2);
+col_vec_coarse = round(col_num_vec/2);
+group_id_vec = [NaN(1,3) (row_vec_coarse-1)*max(col_vec_coarse) + col_vec_coarse];
+
+%%
+%%%%%%%%%%%%%%
+% Extract Plate Map
+%%%%%%%%%%%%%%
+
+% read sheet
+[~,~,MapCell] = xlsread(DataPath,MapIndex);
+
+negative_col_id = 24;
+activator1_rows = find(contains(MapCell(:,1),'NCR_002'));
+activator2_row = find(contains(MapCell(:,1),'NCR_003'));
+
+exp_cell = {'100nM NCR_018','100nM NCR_266','100nM NCR_061'};
+
+for e = 1:length(exp_cell)
+
+  project = [DataName '_' exp_cell{e}];
+  
+  %%%%%%%%%%%%%%
+  % Read in plate map
+  %%%%%%%%%%%%%%
+  WritePath = [WriteRoot '/'];
+  mkdir(WritePath);
+
+
+  %%%%%%%%%%%%%%
+  % Compile data to plot
+  %%%%%%%%%%%%%%
+
+  % initialize structure to store plotting info
+  plot_struct = struct;  
+  spec_NCR_rows = [activator2_row find(contains(MapCell(:,1),exp_cell{e}))'];
+  all_NCR_rows = [activator2_row find(contains(MapCell(:,1),exp_cell))'];
+  % check which groups are NCR
+  ncr_flag_vec = max(isnan(cell2mat(MapCell(spec_NCR_rows,3:end))))==0;
+  ncr_index_vec = find(ncr_flag_vec);
+  no_ncr_flag_vec = min(isnan(cell2mat(MapCell(all_NCR_rows,3:end))))==1;
+  no_ncr_index_vec = find(no_ncr_flag_vec);
+  
+  for n = 1:numel(ncr_index_vec)
+      % get basic info
+      ncr_ind = ncr_index_vec(n);
+      ncr_map_col = cell2mat(MapCell(2:end,2+ncr_ind));
+      prim_ind = no_ncr_index_vec(n);        
+      prim_map_col = cell2mat(MapCell(2:end,2+prim_ind));
+      act_ind = find(~isnan(ncr_map_col(activator1_rows-1)));
+      if ~isempty(act_ind)
+        act_val = MapCell{act_ind+min(activator1_rows),2};
+      else
+        act_val = 0;
+      end
+
+      plot_struct(a).act_ncr_groups = ncr_ind;
+      plot_struct(a).act_prim_groups = prim_ind;
+     
+      % record
+      plot_struct(a).activator_rows = activator1_rows;
+      plot_struct(a).ac_ind = act_ind;
+      plot_struct(a).ac_val = act_val;
+      
+      % pull raw values to plot
+      plot_struct(a).ncr_cols_orig = find(ismember(group_id_vec,plot_struct(a).act_ncr_groups));
+      plot_struct(a).ncr_data = cell2mat(ExpCell(2:end,plot_struct(a).ncr_cols_orig));
+      plot_struct(a).ncr_data = plot_struct(a).ncr_data - plot_struct(a).ncr_data(1,:);
+      plot_struct(a).primary_cols_orig = find(ismember(group_id_vec,plot_struct(a).act_prim_groups));
+      plot_struct(a).primary_data = cell2mat(ExpCell(2:end,plot_struct(a).primary_cols_orig));
+      plot_struct(a).primary_data = plot_struct(a).primary_data - plot_struct(a).primary_data(1,:);
+      
+      % flag potential outlier series
+      plot_struct(a).ncr_outlier_flags = prctile(isoutlier(plot_struct(a).ncr_data,2),33)==1;
+      plot_struct(a).primary_outlier_flags = prctile(isoutlier(plot_struct(a).primary_data,2),33)==1;
+      % calculate summary statistics
+      plot_struct(a).ncr_mean = nanmean(plot_struct(a).ncr_data(:,~plot_struct(a).ncr_outlier_flags),2);
+      plot_struct(a).ncr_std = nanstd(plot_struct(a).ncr_data(:,~plot_struct(a).ncr_outlier_flags),[],2);
+      plot_struct(a).primary_mean = nanmean(plot_struct(a).primary_data(:,~plot_struct(a).primary_outlier_flags),2);
+      plot_struct(a).primary_std = nanstd(plot_struct(a).primary_data(:,~plot_struct(a).primary_outlier_flags),[],2);
+      % time vector
+      plot_struct(a).time = cell2mat(ExpCell(2:end,2))/60;
+  end
+  % save
+  save([WritePath project '.mat'],'plot_struct')
+  % increment
+  group_offset = group_offset + size(MapCell(activator1_rows,3:end),2);
+end
